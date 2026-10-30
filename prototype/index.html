@@ -128,5 +128,58 @@ case "showSubmissions":notify("سجل التسليمات التجريبي: 3 ت�
 }
 });
 
+
+/* Phase 1 additional accessibility and responsive improvements */
+const phaseStyle=document.createElement("style");
+phaseStyle.textContent=`
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+@media(min-width:721px){aside{position:sticky;top:0;align-self:start;max-height:calc(100vh - 72px);overflow:auto}}
+@media(max-width:420px){.controls{align-items:stretch}.controls>input,.controls>select{width:100%}.panel{padding:14px}header h1{font-size:1.1rem}}
+fieldset{min-width:0}textarea{width:100%}a{color:var(--brand)}.card .btn{margin-top:10px}
+`;document.head.appendChild(phaseStyle);
+const demoStore={get(key,fallback){try{const raw=localStorage.getItem("almas-demo-"+key);return raw===null?fallback:JSON.parse(raw)}catch{return fallback}},set(key,value){try{localStorage.setItem("almas-demo-"+key,JSON.stringify(value));return true}catch{return false}}};
+const resumeKey="lesson-progress";state.videoProgress=demoStore.get(resumeKey,state.videoProgress);
+const originalGo=go;
+go=function(page){originalGo(page);try{window.scrollTo(0,0)}catch{}};
+const olderVideo=video;
+video=function(){
+ const notes=demoStore.get("notes","");
+ const bookmarked=demoStore.get("bookmark",false);
+ return section("مشغل الفيديو التفاعلي",'<h3>الأوراق والبناء الضوئي</h3><p class="muted">فيديو تدريبي اختياري، يمكن اختيار ملف من جهازك. الملف لا يغادر جهازك. يمكن التقدم بالمحاكاة عند عدم توفر فيديو.</p><label for="videoFile">اختيار فيديو محلي</label><input type="file" id="videoFile" accept="video/*"><video id="lessonVideo" style="display:block;max-width:100%;width:100%;margin:14px 0;border-radius:12px;background:#122330" controls playsinline preload="metadata" aria-label="مشغل الدرس"></video><div class="progress" aria-label="نسبة مشاهدة الفيديو"><span style="width:'+Math.max(0,Math.min(100,state.videoProgress))+'%"></span></div><p>التقدم المحفوظ: '+state.videoProgress+'%</p><div class="controls">'+button("تقدم محاكاة 25%","advance")+button("إعادة التقدم","resetvideo")+button(bookmarked?"إلغاء العلامة المرجعية":"حفظ علامة مرجعية","bookmark")+'</div>'+(state.videoQuestion?'<div class="panel" role="group"><h3>سؤال أثناء المشاهدة</h3><p>ما الغاز الذي يمتصه النبات في البناء الضوئي؟</p>'+button("ثاني أكسيد الكربون","correct")+" "+button("الأكسجين","wrong")+'</div>':"")+'<label for="notes">ملاحظاتي الخاصة</label><textarea id="notes" rows="4" placeholder="دوّن ملاحظاتك هنا...">'+esc(notes)+'</textarea><p>'+button("حفظ الملاحظات على هذا الجهاز","notes")+'</p><p class="muted">تخزين محلي تجريبي على المتصفح فقط، لا يُستخدم للبيانات الحساسة.</p>');
+};
+const oldExams=exams;
+exams=function(){
+if(state.exam!==1)return oldExams();
+return section("اختبار الأحياء — تجريبي",'<p class="muted">الوقت الإرشادي: 5 دقائق. المؤقت مرئي في الواجهة فقط.</p><p id="examTimer" role="timer" aria-live="off">الوقت المتبقي: 05:00</p>'+qs.map((q,i)=>'<fieldset class="panel"><legend>'+(i+1)+'. '+esc(q.q)+'</legend>'+q.options.map((o,j)=>'<label><input type="radio" name="q'+i+'" data-q="'+i+'" value="'+j+'" '+(state.answers[i]===j?"checked":"")+'> '+esc(o)+'</label>').join("")+'</fieldset>').join("")+button("إرسال الاختبار","submitExam"));
+};
+let videoObjectUrl=null,examInterval=null,examDeadline=null;
+const originalRender=render;
+render=function(){
+if(videoObjectUrl){URL.revokeObjectURL(videoObjectUrl);videoObjectUrl=null}
+clearInterval(examInterval);originalRender();
+if(state.page==="exams"&&state.exam===1){
+examDeadline=examDeadline||Date.now()+5*60000;
+const update=()=>{const e=el("examTimer");if(!e)return;const remaining=Math.max(0,Math.ceil((examDeadline-Date.now())/1000));e.textContent="الوقت المتبقي: "+String(Math.floor(remaining/60)).padStart(2,"0")+":"+String(remaining%60).padStart(2,"0");if(remaining===0){clearInterval(examInterval);state.exam=2;examDeadline=null;notify("انتهى وقت الاختبار التجريبي");render()}};update();examInterval=setInterval(update,1000)
+}else if(state.exam!==1)examDeadline=null;
+};
+document.addEventListener("change",event=>{
+if(event.target.id!=="videoFile")return;
+const file=event.target.files?.[0];
+if(!file)return;
+if(!file.type.startsWith("video/")){notify("اختر ملف فيديو صالحاً");return}
+if(file.size>250*1024*1024){notify("هذا النموذج يدعم ملفات أقل من 250 ميغابايت");return}
+videoObjectUrl=URL.createObjectURL(file);const v=el("lessonVideo");v.src=videoObjectUrl;v.playbackRate=1;notify("تم تحميل فيديو محلي للاختبار");
+});
+document.addEventListener("timeupdate",event=>{if(event.target.id!=="lessonVideo")return;const v=event.target;if(!v.duration||!Number.isFinite(v.duration))return;const n=Math.min(100,Math.round(v.currentTime/v.duration*100));if(n!==state.videoProgress){state.videoProgress=n;demoStore.set(resumeKey,n);const bar=el("content")?.querySelector(".progress span");if(bar)bar.style.width=n+"%"}if(n>=50&&!state.videoQuestion&&!demoStore.get("checkpointAnswered",false)){state.videoQuestion=true;v.pause();notify("وصلت إلى نقطة السؤال التفاعلي");const q=el("content");q.insertAdjacentHTML("beforeend",'<div class="panel"><h3>سؤال توقف: أي غاز يمتصه النبات؟</h3>'+button("ثاني أكسيد الكربون","correct")+" "+button("الأكسجين","wrong")+'</div>')}} ,true);
+document.addEventListener("click",event=>{
+const act=event.target.closest("[data-action]")?.dataset.action;if(!act)return;
+if(act==="notes"){demoStore.set("notes",el("notes")?.value||"");notify("تم حفظ الملاحظات محلياً")}
+if(act==="bookmark"){const next=!demoStore.get("bookmark",false);demoStore.set("bookmark",next);notify(next?"تم حفظ العلامة المرجعية":"تم حذف العلامة المرجعية");render()}
+if(act==="advance"||act==="resetvideo"){demoStore.set(resumeKey,state.videoProgress);if(act==="resetvideo"){demoStore.set("checkpointAnswered",false)}}
+if(act==="correct"){demoStore.set("checkpointAnswered",true);notify("إجابة صحيحة")}
+if(act==="startExam"){examDeadline=Date.now()+5*60000}
+if(act==="submitExam"&&state.exam===2)examDeadline=null;
+},true);
+
 render();
 </script></body></html>
