@@ -80,5 +80,53 @@ document.addEventListener("click",e=>{const p=e.target.closest("[data-page]");if
 document.addEventListener("change",e=>{if(e.target.matches("[data-q]"))state.answers[Number(e.target.dataset.q)]=Number(e.target.value)});
 document.addEventListener("input",e=>{if(e.target.id==="search"){state.search=e.target.value;const items=state.page==="subjects"?DataProvider.getSubjects().map(s=>({name:s.name,detail:s.teacher+" • "+s.lessons+" درساً"})):state.page==="lessons"?DataProvider.getLessons().map(l=>({name:l.title,detail:l.duration})): [{name:state.page+" — سجل 1",detail:"عنصر تجريبي"},{name:state.page+" — سجل 2",detail:"عنصر تجريبي"}];el("resultsList").innerHTML=listCards(items)}});
 try{if(localStorage.getItem("almas-theme")==="dark")document.body.classList.add("dark")}catch{}
+
+// Phase-one UX refinements: mock-only local interactions and content placeholders.
+const PHASE_ONE={completed:false,reviewed:false,version:"0.2.0"};
+function button(label,key){return '<button class="btn" type="button" data-action="'+key+'">'+esc(label)+'</button>'}
+function onboarding(){return section("مرحباً بك في منصة الماس",'<p>تعلم وتابع وعلّم من مكان واحد. هذه نسخة عرض تفاعلية وليست حسابات فعلية.</p><div class="controls">'+button("دخول تجريبي","demoLogin")+button("إنشاء حساب تجريبي","demoRegister")+button("متابعة كضيف","guest")+'</div><p class="muted">إدارة الحسابات والدفع الفعليان مؤجلان إلى الخادم الإنتاجي.</p>')}
+function accountForm(mode){return section(mode==="login"?"تسجيل الدخول التجريبي":"إنشاء حساب تجريبي",'<form id="accountForm"><label for="accountName">الاسم أو البريد الإلكتروني</label><input id="accountName" autocomplete="off" required maxlength="100"><label for="accountPass">كلمة مرور تجريبية (لا تُحفظ)</label><input id="accountPass" type="password" required minlength="4" autocomplete="off"><p><button class="btn" type="submit">متابعة تجريبية</button></p></form><p class="muted">لا تدخل كلمة مرور حقيقية.</p>')}
+function recordsPanel(title,records){return section(title,searchBar()+'<div id="resultsList">'+listCards(records.map(r=>({name:r.name,detail:r.detail||""})))+'</div><p>'+button("إضافة سجل تجريبي","createRecord")+'</p>')}
+function parentAttendance(){return tableView("حضور الأبناء",["الطالب","الأيام الحاضرة","الأيام الغائبة"],[["علي حسن","18","2"],["سارة حسن","19","1"]])}
+function adminRecords(){const data={
+users:[["علي حسن","طالب"],["فاطمة كريم","معلمة"],["سارة حسن","ولي أمر"]],
+schools:[["مدرسة الماس النموذجية","النجف"],["ثانوية الأمل","النجف"]],
+classes:[["الخامس العلمي","32 طالباً"],["الثالث المتوسط","29 طالباً"]],
+subscriptions:[["اشتراك شهري","تجريبي"],["اشتراك سنوي","تجريبي"]],
+payments:[["معاملة 001","قيد الاختبار"],["معاملة 002","مكتملة تجريبياً"]],
+providers:[["مزود محلي","غير متصل"],["مزود سحابي","غير متصل"]],
+permissions:[["طالب","عرض المحتوى والاختبارات"],["معلم","إدارة دروسه"],["مدير","إدارة المنصة"]],
+audit:[["فتح لوحة الإدارة","حدث تجريبي"],["تغيير المظهر","حدث تجريبي"]]
+};return recordsPanel(({users:"المستخدمون",schools:"المدارس",classes:"الصفوف",subscriptions:"الاشتراكات",payments:"المدفوعات",providers:"مزودو الذكاء الاصطناعي",permissions:"الصلاحيات",audit:"سجل العمليات"})[state.page]||"الإدارة",(data[state.page]||[]).map(([name,detail])=>({name,detail})))}
+function teacherVideo(){return section("إدارة الفيديو والأسئلة التفاعلية",'<p>الفيديوهات التعليمية ونقاط توقف الأسئلة — هذه بيانات تجريبية.</p><div class="grid">'+card("الأوراق والبناء الضوئي","18 دقيقة • سؤال عند 50%",button("فتح المعاينة","previewVideo"))+card("البناء الكيميائي","14 دقيقة • لا توجد أسئلة",button("فتح المعاينة","previewVideo"))+'</div><p>'+button("إضافة فيديو تجريبي","createRecord")+' '+button("إضافة سؤال تفاعلي تجريبي","createRecord")+'</p>')}
+function teacherExam(){return section("إدارة الاختبارات",'<div class="grid">'+card("اختبار الأحياء","3 أسئلة • مُتاح",button("معاينة","previewExam"))+card("اختبار الكيمياء","مسودة",button("تحرير تجريبي","createRecord"))+'</div><p>'+button("إنشاء اختبار تجريبي","createRecord")+'</p>')}
+function teacherAssignment(){return section("إدارة الواجبات",'<div class="grid">'+card("واجب الأحياء","مفتوح للتسليم",button("عرض التسليمات","showSubmissions"))+card("واجب الكيمياء","قيد الإعداد",button("تحرير تجريبي","createRecord"))+'</div><p>'+button("إضافة واجب","createRecord")+'</p>')}
+function parentGrades(){return tableView("درجات الأبناء",["الطالب","الأحياء","الكيمياء","الإنجاز"],[["علي حسن","91","86","88%"],["سارة حسن","89","82","72%"]])}
+function roleResults(){if(state.role==="parent")return parentGrades();if(state.role==="teacher")return students();if(state.role==="admin")return tableView("تقارير المنصة",["المؤشر","القيمة"],[["الطلاب","830 تجريبياً"],["المعلمون","28 تجريبياً"],["المدارس","8 تجريبياً"]]);return progress()}
+function roleVideo(){return state.role==="teacher"||state.role==="admin"?teacherVideo():video()}
+function roleExams(){return state.role==="teacher"||state.role==="admin"?teacherExam():exams()}
+function roleAssignments(){return state.role==="teacher"?teacherAssignment():assignments()}
+function roleSubjects(){return state.role==="admin"?recordsPanel("المواد",DataProvider.getSubjects().map(s=>({name:s.name,detail:s.teacher}))):subjects()}
+function roleLessons(){return state.role==="admin"?recordsPanel("الدروس",DataProvider.getLessons().map(l=>({name:l.title,detail:l.duration}))):lessons()}
+const phaseOneRender=render;
+render=function(){
+el("nav").innerHTML=menus[state.role].map(([id,label])=>'<button type="button" data-page="'+id+'" class="'+(state.page===id?"active":"")+'" '+(state.page===id?'aria-current="page"':'')+'>'+esc(label)+'</button>').join("");
+const pages={home,subjects:roleSubjects,lessons:roleLessons,video:roleVideo,exams:roleExams,assignments:roleAssignments,results:roleResults,students,children,attendance:parentAttendance,messages,notifications,landing:onboarding,login:()=>accountForm("login"),register:()=>accountForm("register"),users:adminRecords,schools:adminRecords,classes:adminRecords,subscriptions:adminRecords,payments:adminRecords,providers:adminRecords,permissions:adminRecords,audit:adminRecords};
+el("content").innerHTML=(pages[state.page]||generic)();
+};
+document.addEventListener("submit",event=>{if(event.target.id!=="accountForm")return;event.preventDefault();const name=el("accountName").value.trim();if(name.length<2){notify("اكتب اسماً صالحاً");return}notify("تم فتح الجلسة التجريبية فقط");go("home")});
+document.addEventListener("click",event=>{
+const btn=event.target.closest("[data-action]");if(!btn)return;
+switch(btn.dataset.action){
+case "demoLogin":go("login");break;
+case "demoRegister":go("register");break;
+case "guest":notify("أنت في وضع الضيف التجريبي");go("home");break;
+case "createRecord":notify("إضافة تجريبية فقط — ربط الحفظ في المرحلة الإنتاجية");break;
+case "previewVideo":go("video");break;
+case "previewExam":notify("معاينة الاختبار متاحة بتجربة الطالب");break;
+case "showSubmissions":notify("سجل التسليمات التجريبي: 3 تسليمات");break;
+}
+});
+
 render();
 </script></body></html>
