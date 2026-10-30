@@ -181,5 +181,13 @@ if(act==="startExam"){examDeadline=Date.now()+5*60000}
 if(act==="submitExam"&&state.exam===2)examDeadline=null;
 },true);
 
+// UX decision approved by project owner: hybrid mode.
+const hybridStyles=document.createElement("style");
+hybridStyles.textContent="\n/* Hybrid UX: formal workspace for teachers/admins, visual course experience for learners/families */\nbody[data-experience=\"learning\"]{--brand:#176d76;--accent:#e7f6f1}\nbody[data-experience=\"formal\"]{--brand:#24445f;--accent:#e8eff5}\nbody.dark[data-experience=\"learning\"]{--accent:#21453f}\nbody.dark[data-experience=\"formal\"]{--accent:#263c53}\nbody[data-experience=\"learning\"] .card{border-radius:22px;box-shadow:0 8px 22px rgba(20,70,70,.07)}\nbody[data-experience=\"learning\"] .card h3{font-size:1.08rem}\nbody[data-experience=\"formal\"] .panel{border-radius:10px}\nbody[data-experience=\"formal\"] .card{border-radius:10px;min-height:110px}\nbody[data-experience=\"learning\"] main{max-width:1150px}\nbody[data-experience=\"formal\"] main{max-width:1500px}\nbody[data-experience=\"learning\"] .btn{border-radius:24px}\nbody[data-experience=\"formal\"] .btn{border-radius:7px}\nbody[data-experience=\"learning\"] aside button.active{border-right:4px solid var(--brand)}\nbody[data-experience=\"formal\"] aside button.active{border-right:3px solid var(--brand)}\n@media(max-width:720px){body[data-experience=\"learning\"] .grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}\n";
+document.head.appendChild(hybridStyles);
+function applyExperience(){document.body.dataset.experience=(state.role==="teacher"||state.role==="admin")?"formal":"learning"}
+const renderBeforeHybrid=render;
+render=function(){applyExperience();renderBeforeHybrid()};
+
 render();
 </script></body></html>
