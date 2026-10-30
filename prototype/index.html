@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>منصة الماس | النموذج الأولي</title>
+<style>
+:root{--bg:#f4f7fb;--panel:#fff;--text:#183047;--muted:#617387;--brand:#145e67;--border:#dce5ed;--accent:#e7f4f3}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Tahoma,Arial,system-ui,sans-serif;line-height:1.65}
+body.dark{--bg:#101c28;--panel:#1a2c3b;--text:#f0f5fa;--muted:#b0c0cf;--brand:#1c7b80;--border:#365062;--accent:#1e3d42}
+button,input,select,textarea{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #e8a743;outline-offset:2px}
+header{background:var(--brand);color:white;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{margin:0;font-size:1.3rem}.small{font-size:.85rem;color:var(--muted)}header .small{color:#d6f1ed}
+.layout{display:grid;grid-template-columns:235px minmax(0,1fr);min-height:calc(100vh - 90px)}
+aside{background:var(--panel);border-left:1px solid var(--border);padding:20px 12px}
+aside button{display:block;width:100%;text-align:right;background:transparent;color:var(--text);border:0;border-radius:10px;padding:10px 14px;margin-bottom:4px}
+aside button.active,aside button:hover{background:var(--accent);font-weight:bold}
+main{padding:25px;min-width:0;max-width:1350px;width:100%;margin:auto}
+.panel,.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:14px}
+.card{margin:0;min-height:125px}.card h3{margin:0 0 8px;font-size:1rem}.card p{margin:0;color:var(--muted)}
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.btn{background:var(--brand);color:white;border:0;border-radius:9px;padding:10px 15px}.ghost{background:var(--accent);color:var(--text)}
+input,select,textarea{border:1px solid var(--border);border-radius:9px;padding:10px;background:var(--panel);color:var(--text);max-width:100%}
+label{display:block;margin:8px 0 4px}.muted{color:var(--muted)}.pill{background:var(--accent);border-radius:30px;padding:3px 10px;display:inline-block}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--border);padding:12px;text-align:right}
+.progress{background:var(--border);border-radius:20px;height:10px;overflow:hidden}.progress span{display:block;background:#29a98d;height:100%}
+#toast{position:fixed;bottom:18px;left:18px;background:var(--text);color:var(--panel);padding:12px 18px;border-radius:10px;display:none;z-index:3}
+footer{padding:12px 25px;color:var(--muted);font-size:.8rem}
+@media(max-width:720px){.layout{display:block}aside{display:flex;overflow:auto;gap:6px;padding:10px;border-bottom:1px solid var(--border)}aside button{white-space:nowrap;width:auto;margin:0}main{padding:15px}header{padding:12px}}
+</style>
+</head>
+<body>
+<header><div><h1>◆ منصة الماس للتعليم الإلكتروني</h1><div class="small">نموذج تفاعلي — بيانات تجريبية وليست حسابات حقيقية</div></div><div class="controls"><label for="role">الدور:</label><select id="role" aria-label="اختيار الدور التجريبي"><option value="student">الطالب</option><option value="teacher">المعلم</option><option value="parent">ولي الأمر</option><option value="admin">الإدارة</option></select><button class="btn ghost" id="theme">◐ المظهر</button></div></header>
+<div class="layout"><aside id="nav" aria-label="القائمة الرئيسية"></aside><main><div id="content" aria-live="polite"></div></main></div>
+<footer>نسخة 0.1 — جميع البيانات محاكاة محلية. لا يوجد خادم أو مصادقة أو دفع حقيقي.</footer><div id="toast" role="status"></div>
+<script>
+"use strict";
+const MOCK={
+subjects:[{id:1,name:"الأحياء",teacher:"الأستاذ زيد",lessons:12,progress:70},{id:2,name:"الكيمياء",teacher:"الأستاذة مريم",lessons:10,progress:45},{id:3,name:"الفيزياء",teacher:"الأستاذ أحمد",lessons:9,progress:30},{id:4,name:"الرياضيات",teacher:"الأستاذة نور",lessons:15,progress:82}],
+lessons:[{id:1,subject:1,title:"الأوراق والبناء الضوئي",duration:"18 دقيقة",progress:75},{id:2,subject:1,title:"البناء الكيميائي",duration:"14 دقيقة",progress:0},{id:3,subject:2,title:"الروابط الكيميائية",duration:"22 دقيقة",progress:40},{id:4,subject:3,title:"قوانين الحركة",duration:"19 دقيقة",progress:10}],
+students:[{name:"علي حسن",grade:91,progress:88},{name:"فاطمة كريم",grade:86,progress:79},{name:"محمد أحمد",grade:74,progress:62}],
+children:[{name:"علي حسن",grade:"الخامس العلمي",progress:88},{name:"سارة حسن",grade:"الثالث المتوسط",progress:72}],
+notifications:["تمت إضافة درس البناء الضوئي","اختبار الأحياء التجريبي متاح الآن","تذكير بموعد الواجب الأسبوعي"],
+messages:[{from:"إدارة المنصة",text:"مرحباً بكم في النسخة التجريبية"},{from:"المعلم",text:"يرجى مراجعة الدرس قبل الاختبار"}]
+};
+const DataProvider={getSubjects:()=>MOCK.subjects,getLessons:()=>MOCK.lessons,getStudents:()=>MOCK.students,getChildren:()=>MOCK.children,getNotifications:()=>MOCK.notifications,getMessages:()=>MOCK.messages};
+const menus={
+student:[["home","الرئيسية"],["subjects","المواد الدراسية"],["lessons","الدروس"],["video","الفيديو التفاعلي"],["exams","الاختبارات"],["assignments","الواجبات"],["results","النتائج والتقدم"],["ai","التوصيات الذكية"],["notifications","الإشعارات"],["messages","الرسائل"],["profile","الملف الشخصي"]],
+teacher:[["home","لوحة المعلم"],["subjects","إدارة المواد"],["lessons","إدارة الدروس"],["video","الفيديو والأسئلة"],["exams","الاختبارات"],["assignments","الواجبات"],["students","متابعة الطلاب"],["results","الإحصائيات"],["messages","الرسائل"],["notifications","الإشعارات"],["profile","الملف الشخصي"]],
+parent:[["home","لوحة ولي الأمر"],["children","الأبناء"],["results","الدرجات والإنجاز"],["attendance","الحضور"],["assignments","الواجبات"],["exams","الاختبارات"],["notifications","الإشعارات"],["messages","الرسائل"],["profile","الملف الشخصي"]],
+admin:[["home","لوحة الإدارة"],["users","المستخدمون"],["schools","المدارس"],["classes","الصفوف"],["subjects","المواد"],["lessons","الدروس"],["video","الفيديوهات"],["exams","الاختبارات"],["subscriptions","الاشتراكات"],["payments","المدفوعات"],["providers","مزودو الذكاء الاصطناعي"],["permissions","الصلاحيات"],["results","التقارير"],["audit","سجل العمليات"],["profile","الإعدادات"]]
+};
+const state={role:"student",page:"home",exam:0,answers:{},search:"",videoProgress:0,videoQuestion:false};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const el=id=>document.getElementById(id);
+function notify(message){const t=el("toast");t.textContent=message;t.style.display="block";clearTimeout(notify.timer);notify.timer=setTimeout(()=>t.style.display="none",3200)}
+function go(page){state.page=page;state.search="";render()}
+function card(title,body,action){return '<article class="card"><h3>'+esc(title)+'</h3><p>'+body+'</p>'+(action||"")+'</article>'}
+function action(label,fn){return '<button class="btn" data-action="'+fn+'">'+esc(label)+'</button>'}
+function section(title,body){return '<section class="panel"><h2>'+esc(title)+'</h2>'+body+'</section>'}
+function searchBar(){return '<div class="controls"><label for="search">بحث</label><input id="search" placeholder="ابحث هنا..." value="'+esc(state.search)+'"></div>'}
+function listCards(items){const filtered=items.filter(x=>x.name.toLowerCase().includes(state.search.toLowerCase()));return filtered.length?'<div class="grid">'+filtered.map(x=>card(x.name,esc(x.detail||""),action("التفاصيل","detail:"+x.name))).join("")+'</div>':'<p class="muted">لا توجد نتائج مطابقة.</p>'}
+function home(){const r=state.role;const titles={student:"مرحباً بك في لوحة الطالب",teacher:"لوحة متابعة المعلم",parent:"متابعة الأبناء",admin:"إدارة منصة الماس"};const items=r==="student"?[["المواد الدراسية","4 مواد"],["التقدم العام","57%"],["الاختبارات القادمة","2"],["آخر درس","الأوراق والبناء الضوئي"]]:r==="teacher"?[["الطلاب","128 طالباً"],["الدروس","24 درساً"],["الاختبارات","6 اختبارات"],["التصحيح","8 محاولات"]]:r==="parent"?[["الأبناء","2"],["متوسط الإنجاز","80%"],["الواجبات القادمة","3"],["تنبيهات جديدة","2"]]:[["المستخدمون","1,250 حساباً تجريبياً"],["المدارس","8"],["المواد","32"],["الاشتراكات","320"]];return section(titles[r],'<p class="muted">الأرقام التالية تجريبية لتوضيح تجربة المستخدم.</p><div class="grid">'+items.map(x=>card(x[0],esc(x[1]))).join("")+'</div>')}
+function subjects(){return section(state.role==="teacher"?"إدارة المواد":"المواد الدراسية",searchBar()+'<div id="resultsList">'+listCards(DataProvider.getSubjects().map(s=>({name:s.name,detail:s.teacher+" • "+s.lessons+" درساً • الإنجاز "+s.progress+"%"})))+'</div>')}
+function lessons(){return section("الدروس",searchBar()+'<div id="resultsList">'+listCards(DataProvider.getLessons().map(l=>({name:l.title,detail:l.duration+" • تقدم "+l.progress+"%"})))+'</div>')}
+function video(){return section("مشغل الدرس التفاعلي",'<h3>الأوراق والبناء الضوئي</h3><p class="muted">عرض محاكاة دون تحميل فيديو خارجي. عند الوصول إلى 50% يظهر سؤال تفاعلي.</p><div class="progress" aria-label="تقدم الفيديو"><span style="width:'+state.videoProgress+'%"></span></div><p>التقدم: '+state.videoProgress+'%</p><div class="controls">'+action("▶ تقدم 25%","advance")+action("إعادة الدرس","resetvideo")+action("حفظ علامة مرجعية","bookmark")+'</div>'+(state.videoQuestion?'<div class="panel"><h3>سؤال أثناء المشاهدة</h3><p>ما الغاز الذي يمتصه النبات في البناء الضوئي؟</p>'+action("ثاني أكسيد الكربون","correct")+ ' '+action("الأكسجين","wrong")+'</div>':"")+'<label for="notes">ملاحظاتي</label><textarea id="notes" rows="3" placeholder="دوّن ملاحظاتك هنا..."></textarea><p>'+action("حفظ الملاحظات","notes")+'</p>')}
+const qs=[{q:"أين تحدث عملية البناء الضوئي؟",options:["البلاستيدة الخضراء","النواة","الميتوكوندريا"],correct:0},{q:"ما الغاز الذي يمتصه النبات؟",options:["الأكسجين","ثاني أكسيد الكربون","النيتروجين"],correct:1},{q:"ما مصدر الطاقة في البناء الضوئي؟",options:["الشمس","الرياح","التربة"],correct:0}];
+function exams(){if(state.exam===0)return section("الاختبارات",'<p>اختبار الأحياء التجريبي • 3 أسئلة • النتيجة فورية</p>'+action("ابدأ الاختبار","startExam"));if(state.exam===2){let score=qs.reduce((a,q,i)=>a+(state.answers[i]===q.correct?1:0),0);return section("نتيجة الاختبار",'<h3>'+score+' من '+qs.length+'</h3><p>هذه نتيجة تجريبية وليست درجة رسمية.</p>'+action("إعادة الاختبار","startExam"))}return section("اختبار الأحياء",qs.map((q,i)=>'<fieldset class="panel"><legend>'+(i+1)+'. '+esc(q.q)+'</legend>'+q.options.map((o,j)=>'<label><input type="radio" name="q'+i+'" data-q="'+i+'" value="'+j+'" '+(state.answers[i]===j?"checked":"")+'> '+esc(o)+'</label>').join("")+'</fieldset>').join("")+action("إرسال الإجابات","submitExam"))}
+function progress(){return section("النتائج والتقدم",'<div class="grid">'+DataProvider.getSubjects().map(s=>card(s.name,'<div class="progress"><span style="width:'+s.progress+'%"></span></div><p>'+s.progress+'% مكتمل</p>')).join("")+'</div>')}
+function assignments(){return section("الواجبات",'<div class="grid">'+card("واجب الأحياء","3 أسئلة • آخر موعد: تجريبي",action("تسليم تجريبي","submitAssignment"))+card("واجب الكيمياء","ملخص الروابط الكيميائية",action("عرض الواجب","detail:واجب الكيمياء"))+'</div>')}
+function tableView(title,headers,rows){return section(title,'<div style="overflow:auto"><table><thead><tr>'+headers.map(x=>'<th>'+esc(x)+'</th>').join("")+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+esc(c)+'</td>').join("")+'</tr>').join("")+'</tbody></table></div>')}
+function students(){return tableView("متابعة الطلاب",["الطالب","الدرجة","التقدم"],DataProvider.getStudents().map(s=>[s.name,s.grade+"%",s.progress+"%"]))}
+function children(){return tableView("الأبناء",["الاسم","الصف","الإنجاز"],DataProvider.getChildren().map(c=>[c.name,c.grade,c.progress+"%"]))}
+function messages(){return section("الرسائل",'<div class="grid">'+DataProvider.getMessages().map(m=>card(m.from,esc(m.text))).join("")+'</div><label for="msg">رسالة تجريبية</label><textarea id="msg" rows="3" placeholder="اكتب رسالتك..."></textarea><p>'+action("إرسال تجريبي","send")+'</p>')}
+function notifications(){return section("الإشعارات",DataProvider.getNotifications().map(n=>'<p class="panel">🔔 '+esc(n)+'</p>').join(""))}
+function generic(){const names={attendance:"الحضور",users:"المستخدمون",schools:"المدارس",classes:"الصفوف",subscriptions:"الاشتراكات",payments:"المدفوعات",providers:"مزودو الذكاء الاصطناعي",permissions:"الصلاحيات",audit:"سجل العمليات",ai:"التوصيات الذكية",profile:"الملف الشخصي"};const title=names[state.page]||"القسم";const content=state.page==="ai"?'<div class="grid">'+card("نقاط القوة","الأحياء")+card("نقاط التحسين","الكيمياء")+card("اقتراح اليوم","راجع درس الروابط الكيميائية")+'</div>':state.page==="profile"?'<label for="fullname">الاسم</label><input id="fullname" value="مستخدم تجريبي"><label for="phone">رقم الهاتف</label><input id="phone" placeholder="07xxxxxxxxx"><p>'+action("حفظ تجريبي","save")+'</p>':'<p class="muted">هذه واجهة '+esc(title)+' ببيانات تجريبية. الربط الفعلي بالخادم وقاعدة البيانات مؤجل.</p>'+searchBar()+'<div id="resultsList">'+listCards([{name:title+" — سجل 1",detail:"عنصر تجريبي"},{name:title+" — سجل 2",detail:"عنصر تجريبي"}])+'</div><p>'+action("إضافة عنصر تجريبي","add")+'</p>';return section(title,content)}
+function render(){el("nav").innerHTML=menus[state.role].map(([id,label])=>'<button data-page="'+id+'" class="'+(state.page===id?"active":"")+'">'+esc(label)+'</button>').join("");const pages={home,subjects,lessons,video,exams,assignments,results:progress,students,children,messages,notifications};el("content").innerHTML=(pages[state.page]||generic)()}
+el("role").addEventListener("change",e=>{state.role=e.target.value;state.page="home";state.exam=0;render()});
+el("theme").addEventListener("click",()=>{document.body.classList.toggle("dark");try{localStorage.setItem("almas-theme",document.body.classList.contains("dark")?"dark":"light")}catch{}});
+document.addEventListener("click",e=>{const p=e.target.closest("[data-page]");if(p){go(p.dataset.page);return}const b=e.target.closest("[data-action]");if(!b)return;const a=b.dataset.action;if(a==="startExam"){state.exam=1;state.answers={};render()}else if(a==="submitExam"){if(Object.keys(state.answers).length<qs.length)return notify("يرجى الإجابة عن جميع الأسئلة");state.exam=2;render()}else if(a==="advance"){state.videoProgress=Math.min(100,state.videoProgress+25);if(state.videoProgress===50)state.videoQuestion=true;render()}else if(a==="resetvideo"){state.videoProgress=0;state.videoQuestion=false;render()}else if(a==="correct"){state.videoQuestion=false;notify("إجابة صحيحة!");render()}else if(a==="wrong")notify("حاول مرة أخرى");else if(a==="notes"){notify("تم حفظ الملاحظة في الواجهة التجريبية فقط")}else if(a==="send"){const v=el("msg")?.value.trim();notify(v?"تم إرسال رسالة تجريبية":"اكتب الرسالة أولاً")}else if(a.startsWith("detail:"))notify("تفاصيل "+a.slice(7)+" — محاكاة");else notify("تم تنفيذ الإجراء التجريبي: "+a)});
+document.addEventListener("change",e=>{if(e.target.matches("[data-q]"))state.answers[Number(e.target.dataset.q)]=Number(e.target.value)});
+document.addEventListener("input",e=>{if(e.target.id==="search"){state.search=e.target.value;const items=state.page==="subjects"?DataProvider.getSubjects().map(s=>({name:s.name,detail:s.teacher+" • "+s.lessons+" درساً"})):state.page==="lessons"?DataProvider.getLessons().map(l=>({name:l.title,detail:l.duration})): [{name:state.page+" — سجل 1",detail:"عنصر تجريبي"},{name:state.page+" — سجل 2",detail:"عنصر تجريبي"}];el("resultsList").innerHTML=listCards(items)}});
+try{if(localStorage.getItem("almas-theme")==="dark")document.body.classList.add("dark")}catch{}
+render();
+</script></body></html>
