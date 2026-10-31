@@ -1,0 +1,192 @@
+{
+  "color": {
+    "light-bg": "#f5f8ff",
+    "light-panel": "#ffffff",
+    "light-text": "#172b4d",
+    "light-muted": "#53647d",
+    "light-brand": "#2448b8",
+    "light-link": "#2448b8",
+    "light-border": "#cbd6e9",
+    "light-input-border": "#7d8fae",
+    "light-accent": "#eaf0ff",
+    "light-danger": "#a62032",
+    "light-yellow": "#ffcf43",
+    "light-teal": "#007b78",
+    "dark-bg": "#101c32",
+    "dark-panel": "#182840",
+    "dark-text": "#eef3ff",
+    "dark-muted": "#b9c8e0",
+    "dark-brand": "#3156c5",
+    "dark-link": "#abc4ff",
+    "dark-border": "#405577",
+    "dark-input-border": "#879cbc",
+    "dark-accent": "#243b62",
+    "dark-danger": "#ffadb8",
+    "dark-yellow": "#ffcf43",
+    "dark-teal": "#007b78",
+    "on-brand": "#ffffff",
+    "on-yellow": "#172b4d",
+    "hero-muted": "#e0eaff",
+    "hero-lightest": "#3156c5",
+    "hero-darkest": "#163080",
+    "focus-light": "#956300",
+    "focus-dark": "#ffcf43"
+  },
+  "pairs": [
+    [
+      "light-text",
+      "light-panel"
+    ],
+    [
+      "light-muted",
+      "light-panel"
+    ],
+    [
+      "light-link",
+      "light-panel"
+    ],
+    [
+      "light-danger",
+      "light-panel"
+    ],
+    [
+      "light-text",
+      "light-bg"
+    ],
+    [
+      "light-muted",
+      "light-bg"
+    ],
+    [
+      "light-link",
+      "light-bg"
+    ],
+    [
+      "light-danger",
+      "light-bg"
+    ],
+    [
+      "light-text",
+      "light-accent"
+    ],
+    [
+      "light-muted",
+      "light-accent"
+    ],
+    [
+      "light-link",
+      "light-accent"
+    ],
+    [
+      "light-danger",
+      "light-accent"
+    ],
+    [
+      "light-input-border",
+      "light-panel",
+      "ui"
+    ],
+    [
+      "dark-text",
+      "dark-panel"
+    ],
+    [
+      "dark-muted",
+      "dark-panel"
+    ],
+    [
+      "dark-link",
+      "dark-panel"
+    ],
+    [
+      "dark-danger",
+      "dark-panel"
+    ],
+    [
+      "dark-text",
+      "dark-bg"
+    ],
+    [
+      "dark-muted",
+      "dark-bg"
+    ],
+    [
+      "dark-link",
+      "dark-bg"
+    ],
+    [
+      "dark-danger",
+      "dark-bg"
+    ],
+    [
+      "dark-text",
+      "dark-accent"
+    ],
+    [
+      "dark-muted",
+      "dark-accent"
+    ],
+    [
+      "dark-link",
+      "dark-accent"
+    ],
+    [
+      "dark-danger",
+      "dark-accent"
+    ],
+    [
+      "dark-input-border",
+      "dark-panel",
+      "ui"
+    ],
+    [
+      "on-brand",
+      "light-brand"
+    ],
+    [
+      "on-brand",
+      "dark-brand"
+    ],
+    [
+      "on-yellow",
+      "light-yellow"
+    ],
+    [
+      "hero-muted",
+      "hero-lightest"
+    ],
+    [
+      "hero-muted",
+      "hero-darkest"
+    ],
+    [
+      "focus-light",
+      "light-panel",
+      "ui"
+    ],
+    [
+      "focus-dark",
+      "dark-panel",
+      "ui"
+    ]
+  ],
+  "spacing": [
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    32,
+    40,
+    48,
+    64,
+    72
+  ],
+  "radius": [
+    12,
+    20,
+    28
+  ],
+  "source": "prototype/index.html inline CSS; no external stylesheet is loaded"
+}
