@@ -26,12 +26,20 @@ All E2E tests open the local `file://` prototype in isolated browser contexts.
 HTTP(S) requests are intercepted and aborted; any attempted external request or
 browser runtime error fails the test.
 
-Chromium, Firefox, and WebKit on Linux use browser offline emulation as an
-additional restriction. Windows WebKit has an environment-specific limitation:
-enabling offline emulation causes an internal navigation error for every local
-file, including minimal ASCII-path HTML. Controlled checks showed the original
-prototype, a byte-identical ASCII-path copy, and a minimal page all fail only
-with offline emulation enabled. Windows WebKit therefore uses the same strict
-HTTP(S) interception without that emulation flag. Each affected test includes
-an environment annotation in the Playwright report. No page, assertion, or
-test is skipped for this workaround, and the original shipped file is tested.
+Chromium and Firefox use browser offline emulation as an additional
+restriction. WebKit uses `offline: false` on **all platforms** because enabling
+that emulation causes internal navigation errors for local `file://` pages on
+both Windows and Linux. Windows controls reproduced the issue with the shipped
+prototype, a byte-identical ASCII-path copy, and minimal HTML. After pinning
+the CI runner to Ubuntu 24, [run 41197083464](https://github.com/cctw1382-stack/almas-elearning/actions/runs/41197083464)
+passed 18 unit tests and 86 browser cases but failed all 37 WebKit cases during
+local-file navigation before application startup, confirming the Linux scope.
+
+WebKit therefore retains the same strict HTTP(S) interception without the
+offline-emulation flag. Every attempted HTTP(S) request is aborted and fails
+the test. Each affected test includes an environment annotation in the
+Playwright report. No page, assertion, or test is skipped for this navigation
+workaround, and the original shipped file is tested. This change is separate
+from the **Windows-only** native-decoder capability skip described above;
+Linux still runs the native playback assertions. Current CI results must be
+read from the branch Actions page or PR, not inferred from the earlier run.

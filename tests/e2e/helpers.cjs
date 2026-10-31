@@ -6,10 +6,10 @@ const prototypeURL = pathToFileURL(path.resolve(__dirname, '../../prototype/inde
 const test = base.extend({
   runtimeGuard: [async ({ page, context }, use, testInfo) => {
     const failures = [];
-    if (testInfo.project.name === 'webkit' && process.platform === 'win32') {
+    if (testInfo.project.name === 'webkit') {
       testInfo.annotations.push({
         type: 'environment',
-        description: 'Windows WebKit cannot navigate file:// with offline emulation; HTTP(S) requests are intercepted, aborted, and fail the test.',
+        description: 'WebKit cannot navigate file:// with offline emulation; HTTP(S) requests are intercepted, aborted, and fail the test.',
       });
     }
     page.on('pageerror', error => failures.push(`pageerror: ${error.message}`));

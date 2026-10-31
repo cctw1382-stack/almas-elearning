@@ -31,10 +31,10 @@ module.exports = defineConfig({
     { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: /responsive\.spec\.cjs/ },
     {
       name: 'webkit',
-      // Windows WebKit rejects even minimal file:// pages when offline
+      // WebKit rejects even minimal file:// pages when offline
       // emulation is enabled. The automatic fixture still aborts and reports
       // every HTTP(S) request, so this engine remains network-isolated.
-      use: { ...devices['Desktop Safari'], offline: process.platform !== 'win32' },
+      use: { ...devices['Desktop Safari'], offline: false },
       testIgnore: /responsive\.spec\.cjs/,
     },
     ...[360, 768, 1366].map(width => ({
