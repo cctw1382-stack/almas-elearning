@@ -168,6 +168,11 @@
       "focus-dark",
       "dark-panel",
       "ui"
+    ],
+    [
+      "focus-dark",
+      "hero-lightest",
+      "ui"
     ]
   ],
   "spacing": [
