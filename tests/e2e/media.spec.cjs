@@ -72,7 +72,7 @@ test('native local video loads, plays and pauses at its checkpoint without losin
     input.value = '0.4';
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  await expect(video).toHaveJSProperty('volume', 0.4);
+  await expect.poll(() => video.evaluate(element => element.volume)).toBeCloseTo(0.4, 5);
   await go(page, 'home');
   await go(page, 'video');
   await expect(page.locator('#notes')).toHaveValue('ملاحظات حول البناء الضوئي');

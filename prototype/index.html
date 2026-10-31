@@ -171,6 +171,13 @@ class MockRepository {
       this.#assert(Array.isArray(record.studentIds) && record.studentIds.every(id => this.#safeKey(id) && data.collections.students.some(student => student.id === id)), 'قائمة الطلاب تحتوي معرّف طالب غير صالح أو غير موجود.');
       this.#assert(new Set(record.studentIds).size === record.studentIds.length, 'قائمة الطلاب تحتوي معرّفات مكررة.');
     }
+    if (kind === 'assignments' && record.submissions !== undefined) {
+      this.#assert(this.#object(record.submissions), 'صيغة تسليمات الواجب غير صالحة.');
+      for (const [studentId, answer] of Object.entries(record.submissions)) {
+        this.#assert(this.#safeKey(studentId) && data.collections.students.some(student => student.id === studentId), 'تسليم الواجب مرتبط بطالب غير موجود.');
+        this.#text(answer, 'إجابة تسليم الواجب', 5000);
+      }
+    }
     if (kind === 'lessons') { this.#text(record.duration, 'مدة الدرس', 40); this.#question(record.checkpoint, false); }
     if (kind === 'exams') {
       this.#assert(Number.isInteger(record.duration) && record.duration >= 1 && record.duration <= 10800, 'مدة الاختبار يجب أن تكون بين ثانية و180 دقيقة.');
@@ -260,6 +267,7 @@ class MockRepository {
     if (kind === 'subjects') this.#assert(!['lessons', 'exams', 'assignments'].some(type => this.#data.collections[type].some(item => item.subjectId === id)), 'لا يمكن حذف مادة مرتبطة بدروس أو اختبارات أو واجبات. احذف الارتباطات أولاً.');
     if (kind === 'students') this.#assert(!this.#data.collections.children.some(child => child.studentId === id), 'لا يمكن حذف طالب مرتبط بملف ابن.');
     if (kind === 'students') this.#assert(!['exams', 'assignments'].some(type => this.#data.collections[type].some(item => item.studentIds?.includes(id))), 'لا يمكن حذف طالب مرتبط باختبارات أو واجبات. أزل الارتباطات أولاً.');
+    if (kind === 'students') this.#assert(!this.#data.collections.assignments.some(item => item.submissions && Object.hasOwn(item.submissions, id)), 'لا يمكن حذف طالب مرتبط بتسليم واجب. أزل التسليم أولاً.');
     if (kind === 'children') this.#assert(!this.#data.collections.attendance.some(item => item.childId === id), 'لا يمكن حذف ابن مرتبط بسجلات حضور.');
     const [record] = collection.splice(index, 1);
     this.#audit('حذف سجل', kind, record);
@@ -347,6 +355,13 @@ function manager() {return state.role==='teacher'||state.role==='admin';}
 function pageKind() {return state.page==='video'?'lessons':state.page;}
 function child() {return repository.get('children',repository.getSetting('selectedChild','c1'))||repository.list('children')[0];}
 function childPicker() {const c=child();return '<label for="childSelect">اختيار الابن</label><select id="childSelect">'+repository.list('children').map(x=>'<option value="'+esc(x.id)+'" '+(c?.id===x.id?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>';}
+function assignmentSubmission(record,studentId) {return record.submissions?.[studentId]||(studentId==='u1'?record.submission:'')||'';}
+function recordStatus(record,kind) {
+  if(kind!=='assignments'||manager())return record.status;
+  const studentId=state.role==='parent'?child()?.studentId:'u1';
+  if(assignmentSubmission(record,studentId))return 'تم التسليم';
+  return record.status==='تم التسليم'?'مطلوب':record.status;
+}
 function table(headers,rows,caption='بيانات محلية تجريبية') {return '<div class="table-wrap"><table><caption>'+esc(caption)+'</caption><thead><tr>'+headers.map(h=>'<th scope="col">'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+row.map(cell=>'<td>'+cell+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';}
 function progressBar(percent) {return '<div class="progress" role="progressbar" aria-label="نسبة الإنجاز" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+percent+'"><span style="width:'+percent+'%"></span></div><p>'+percent+'% مكتمل</p>';}
 function go(page,preview=false,examOpen=false) {
@@ -364,12 +379,12 @@ function home() {
   return section('مرحباً '+repository.getSetting('alias-'+state.role,'بك في لوحة '+el('role').selectedOptions[0].textContent),(state.role==='parent'?childPicker():'')+(state.role==='student'?'<p class="muted">هذا الدور يعرض بيانات الطالب الافتراضي '+esc(repository.get('students','u1')?.name||'')+'. الاسم المستعار يغيّر اسم العرض فقط.</p>':'')+'<p class="muted">الأرقام محسوبة من بيانات العرض المحلية.</p><div class="grid">'+data.map(([name,value])=>card(name,'<p>'+esc(value)+'</p>')).join('')+'</div>');
 }
 function searchControls(kind) {
-  const statuses=[...new Set([...repository.list(kind).map(x=>x.status),state.filter].filter(Boolean))];
+  const statuses=[...new Set([...repository.list(kind).map(x=>recordStatus(x,kind)),state.filter].filter(Boolean))];
   return '<div class="controls"><div><label for="search">بحث</label><input id="search" type="search" maxlength="120" placeholder="ابحث بالاسم أو التفاصيل" value="'+esc(state.search)+'"></div><div><label for="filterStatus">تصفية الحالة</label><select id="filterStatus"><option value="">كل الحالات</option>'+statuses.map(s=>'<option value="'+esc(s)+'" '+(state.filter===s?'selected':'')+'>'+esc(s)+'</option>').join('')+'</select></div>'+(['lessons','exams','assignments'].includes(kind)?'<div><label for="subjectFilter">تصفية المادة</label><select id="subjectFilter"><option value="">كل المواد</option>'+repository.list('subjects').map(s=>'<option value="'+esc(s.id)+'" '+(state.subject===s.id?'selected':'')+'>'+esc(s.name)+'</option>').join('')+'</select></div>':'')+'</div>';
 }
 function recordList(kind) {
   const viewer=state.role==='parent'?child()?.studentId:state.role==='student'?'u1':null;
-  const items=repository.list(kind).filter(x=>(x.name+' '+(x.detail||'')+' '+(x.teacher||'')).toLocaleLowerCase('ar').includes(state.search.trim().toLocaleLowerCase('ar'))&&(!state.filter||x.status===state.filter)&&(!state.subject||x.subjectId===state.subject)&&(!viewer||!x.studentIds||x.studentIds.includes(viewer)));
+  const items=repository.list(kind).filter(x=>(x.name+' '+(x.detail||'')+' '+(x.teacher||'')).toLocaleLowerCase('ar').includes(state.search.trim().toLocaleLowerCase('ar'))&&(!state.filter||recordStatus(x,kind)===state.filter)&&(!state.subject||x.subjectId===state.subject)&&(!viewer||!x.studentIds||x.studentIds.includes(viewer)));
   if(!items.length) return '<p class="muted" role="status">لا توجد سجلات مطابقة لهذا الاختيار.'+(manager()?' غيّر البحث أو أضف سجلاً.':'')+'</p>';
   const rows=items.map(x=>{
     let controls=button('التفاصيل','detail',x.id);
@@ -380,9 +395,9 @@ function recordList(kind) {
       const attempt=repository.getAttempt(x.id);
       controls+=state.role==='student'?button(attempt?.status==='active'?'استئناف الاختبار':attempt?.status==='submitted'?'عرض النتيجة':'ابدأ الاختبار','openExam',x.id):manager()?button('معاينة الاختبار','previewExam',x.id):'';
     }
-    if(kind==='assignments'&&state.role==='student')controls+=button(x.submission?'تعديل التسليم':'تسليم الواجب','assignment',x.id);
+    if(kind==='assignments'&&state.role==='student')controls+=button(assignmentSubmission(x,'u1')?'تعديل التسليم':'تسليم الواجب','assignment',x.id);
     if(kind==='assignments'&&manager())controls+=button('عرض التسليمات','submissions',x.id);
-    let detail=esc(x.teacher||x.detail||x.duration||'—');const status='<span class="pill">'+esc(x.status||'تجريبي')+'</span>';
+    let detail=esc(x.teacher||x.detail||x.duration||'—');const status='<span class="pill">'+esc(recordStatus(x,kind)||'تجريبي')+'</span>';
     if(state.role==='parent'&&kind==='exams'){const attempt=child()?.studentId==='u1'?repository.getAttempt(x.id):null;detail+='<p>نتيجة '+esc(child()?.name||'الابن')+': '+(attempt?.status==='submitted'?attempt.score+' من '+attempt.total:attempt?.status==='active'?'محاولة جارية':'لا توجد محاولة محلية لهذا الابن')+'</p>';}
     if(!manager())return card(x.name,'<p>'+detail+'</p><p>'+status+'</p>',controls);
     return [esc(x.name),detail,status,'<div class="controls">'+controls+'</div>'];
@@ -536,8 +551,8 @@ const actions={
   seekBookmark:()=>{const d=videoState();if(d.bookmark===null)return notify('احفظ علامة مرجعية أولاً');if(!el('lessonVideo').currentSrc)return notify('أعد اختيار الفيديو المحلي للانتقال إلى العلامة');el('lessonVideo').currentTime=Math.min(d.bookmark,el('lessonVideo').duration||d.bookmark);},
   checkpoint:id=>{const lesson=repository.get('lessons',state.lessonId);if(Number(id)!==lesson.checkpoint.correct){el('checkpointError').textContent='إجابة غير صحيحة؛ حاول مرة أخرى.';return;}saveVideoState({checkpointAnswered:true});updateVideoUI();notify('إجابة صحيحة؛ يمكنك متابعة الدرس');if(el('lessonVideo').currentSrc)el('lessonVideo').play().catch(()=>notify('اضغط تشغيل لمتابعة الفيديو'));else el('notes').focus();},
   fullscreen:async()=>{try{const v=el('lessonVideo');if(v.requestFullscreen)await v.requestFullscreen();else if(v.webkitEnterFullscreen)v.webkitEnterFullscreen();else notify('استخدم زر ملء الشاشة في أدوات المتصفح');}catch{notify('استخدم زر ملء الشاشة في أدوات الفيديو');}},
-  assignment:id=>{const a=repository.get('assignments',id);showDialog(a.name,'<p>'+esc(a.detail)+'</p><label for="submission">إجابتي التجريبية</label><textarea id="submission" rows="4" required maxlength="5000">'+esc(a.submission||'')+'</textarea><p class="controls"><button class="btn" type="submit">حفظ التسليم</button>'+button('إلغاء','closeDialog')+'</p>',()=>{const text=el('submission').value.trim();if(!text)throw new Error('اكتب إجابتك أولاً.');repository.save('assignments',{...a,submission:text,status:'تم التسليم'});el('dialog').close();render();notify('تم حفظ التسليم التجريبي');});},
-  submissions:id=>{const a=repository.get('assignments',id);showDialog('تسليمات '+a.name,'<p>'+esc(a.submission||'لا توجد تسليمات محلية لهذا الواجب.')+'</p>'+button('إغلاق','closeDialog'));},
+  assignment:id=>{const a=repository.get('assignments',id);showDialog(a.name,'<p>'+esc(a.detail)+'</p><label for="submission">إجابتي التجريبية</label><textarea id="submission" rows="4" required maxlength="5000">'+esc(assignmentSubmission(a,'u1'))+'</textarea><p class="controls"><button class="btn" type="submit">حفظ التسليم</button>'+button('إلغاء','closeDialog')+'</p>',()=>{const text=el('submission').value.trim();if(!text)throw new Error('اكتب إجابتك أولاً.');repository.save('assignments',{...a,submissions:{...(a.submissions||{}),u1:text}});el('dialog').close();render();notify('تم حفظ التسليم التجريبي');});},
+  submissions:id=>{const a=repository.get('assignments',id),students=repository.list('students').filter(s=>assignmentSubmission(a,s.id));showDialog('تسليمات '+a.name,(students.length?students.map(s=>'<h3>'+esc(s.name)+'</h3><p>'+esc(assignmentSubmission(a,s.id))+'</p>').join(''):'<p>لا توجد تسليمات محلية لهذا الواجب.</p>')+button('إغلاق','closeDialog'));},
   readNotification:id=>{const n=repository.get('notifications',id);repository.save('notifications',{...n,status:'مقروء'});render();notify('تم تحديث الإشعار');},
   addQuestion:()=>{const container=el('questionEditors');if(container.children.length>=20)return;container.insertAdjacentHTML('beforeend',optionFields(null,container.children.length));},
   removeQuestion:(_,target)=>{const container=el('questionEditors');const values=[...container.children].map((node,i)=>readQuestion(node,i));values.splice([...container.children].indexOf(target.closest('fieldset')),1);container.innerHTML=values.map((q,i)=>optionFields(q,i)).join('');}

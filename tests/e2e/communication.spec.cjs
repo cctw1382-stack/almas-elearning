@@ -1,4 +1,4 @@
-const { test, expect, openApp, enterAs, go, record } = require('./helpers.cjs');
+const { test, expect, openApp, enterAs, go, record, fillRecord } = require('./helpers.cjs');
 
 test('registration enters the demo with an alias and profile edits persist per role', async ({ page }) => {
   await openApp(page);
@@ -115,4 +115,38 @@ test('parent assignments and exams show only content assigned to the selected ch
   await expect(page.locator('#childSelect')).toHaveValue('c1');
   await expect(record(page, 'واجب الأحياء')).toBeVisible();
   await expect(record(page, 'واجب الكيمياء')).toHaveCount(0);
+});
+
+test('a shared assignment keeps each child completion status and answer separate', async ({ page }) => {
+  await enterAs(page, 'teacher');
+  await go(page, 'assignments');
+  const name = 'واجب مشترك لاختبار استقلال التسليم';
+  const answer = 'إجابة علي الخاصة بالواجب المشترك';
+  await page.getByRole('button', { name: 'إضافة سجل', exact: true }).click();
+  await fillRecord(page, name, 'واجب لجميع الطلاب؛ لكل طالب تسليم مستقل');
+  await page.getByRole('dialog').getByRole('button', { name: 'حفظ', exact: true }).click();
+  await page.locator('#role').selectOption('student');
+  await go(page, 'assignments');
+  await record(page, name).getByRole('button', { name: 'تسليم الواجب', exact: true }).click();
+  await page.locator('#submission').fill(answer);
+  await page.getByRole('dialog').getByRole('button', { name: 'حفظ التسليم', exact: true }).click();
+  await page.locator('#role').selectOption('parent');
+  await go(page, 'assignments');
+  await page.locator('#childSelect').selectOption('c1');
+  await expect(record(page, name)).toContainText('تم التسليم');
+  await page.locator('#childSelect').selectOption('c2');
+  await expect(record(page, name)).toBeVisible();
+  await expect(record(page, name)).not.toContainText('تم التسليم');
+  await expect(record(page, name)).not.toContainText(answer);
+  await record(page, name).getByRole('button', { name: 'التفاصيل', exact: true }).click();
+  await expect(page.getByRole('dialog')).not.toContainText(answer);
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await go(page, 'assignments');
+  await expect(page.locator('#childSelect')).toHaveValue('c2');
+  await expect(record(page, name)).not.toContainText('تم التسليم');
+  await page.locator('#role').selectOption('teacher');
+  await go(page, 'assignments');
+  await record(page, name).getByRole('button', { name: 'عرض التسليمات', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText(answer);
 });

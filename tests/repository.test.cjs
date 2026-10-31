@@ -120,6 +120,36 @@ test('students referenced by assignment or exam allocations cannot be deleted', 
   assert.equal(repo.remove('students', 'u3'), true);
 });
 
+test('assignment submissions persist separately per student and reject invalid submission maps', () => {
+  const { repository: repo, MockRepository } = boot();
+  const record = repo.save('assignments', { name: 'واجب مشترك', subjectId: 's1', studentIds: ['u1', 'u4'], status: 'مطلوب' });
+  for (const submissions of [[], null, { absent: 'إجابة' }, { u1: '' }, { u1: '  ' }, { u1: 'أ'.repeat(5001) }, { u1: 42 }]) {
+    assert.throws(() => repo.save('assignments', { id: record.id, submissions }), /تسليم|طالب|إجابة|5000|صالح/);
+  }
+  const input = { u1: 'إجابة علي' };
+  const saved = repo.save('assignments', { id: record.id, submissions: input });
+  input.u1 = 'تغيير المدخل الخارجي';
+  saved.submissions.u1 = 'تغيير النتيجة الخارجية';
+  const beforeSecond = repo.get('assignments', record.id);
+  assert.deepEqual(plain(beforeSecond.submissions), { u1: 'إجابة علي' });
+  assert.equal(beforeSecond.status, 'مطلوب');
+  assert.equal(beforeSecond.submissions.u4, undefined);
+  repo.save('assignments', { id: record.id, submissions: { ...beforeSecond.submissions, u4: 'إجابة سارة' } });
+  const restored = new MockRepository().get('assignments', record.id);
+  assert.deepEqual(plain(restored.submissions), { u1: 'إجابة علي', u4: 'إجابة سارة' });
+  assert.equal(restored.status, 'مطلوب');
+  assert.equal(repo.save('assignments', { name: 'واجب قديم', subjectId: 's1', submission: 'إجابة محفوظة بالنمط القديم' }).submission, 'إجابة محفوظة بالنمط القديم');
+});
+
+test('a submission map alone prevents deletion of its referenced student until unlinked', () => {
+  const { repository: repo } = boot();
+  const assignment = repo.save('assignments', { name: 'تسليم محفوظ', subjectId: 's1', submissions: { u2: 'إجابة فاطمة' } });
+  assert.throws(() => repo.remove('students', 'u2'), /مرتبط|تسليم|طالب|واجب/);
+  assert.ok(repo.get('students', 'u2'));
+  repo.save('assignments', { id: assignment.id, submissions: {} });
+  assert.equal(repo.remove('students', 'u2'), true);
+});
+
 test('lesson progress, notes, checkpoints, and bookmarks persist independently', () => {
   const { repository: repo, MockRepository } = boot();
   assert.deepEqual(plain(repo.getLessonState('l1')), { percent: 0, seconds: 0, notes: '', bookmark: null, checkpointAnswered: false });
