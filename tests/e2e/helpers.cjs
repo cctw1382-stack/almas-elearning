@@ -2,11 +2,13 @@ const { test: base, expect } = require('@playwright/test');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
-const prototypeURL = pathToFileURL(path.resolve(__dirname, '../../prototype/index.html')).href;
+const prototypeURL = process.env.ALMAS_TEST_URL || pathToFileURL(path.resolve(__dirname, '../../prototype/index.html')).href;
+const appOrigin = process.env.ALMAS_TEST_URL ? new URL(prototypeURL).origin : null;
+if (appOrigin && !['127.0.0.1', 'localhost'].includes(new URL(appOrigin).hostname)) throw new Error('Tests must target a local app');
 const test = base.extend({
   runtimeGuard: [async ({ page, context }, use, testInfo) => {
     const failures = [];
-    if (testInfo.project.name === 'webkit') {
+    if (testInfo.project.name === 'webkit' && !appOrigin) {
       testInfo.annotations.push({
         type: 'environment',
         description: 'WebKit cannot navigate file:// with offline emulation; HTTP(S) requests are intercepted, aborted, and fail the test.',
@@ -17,6 +19,7 @@ const test = base.extend({
       if (message.type() === 'error') failures.push(`console: ${message.text()}`);
     });
     await context.route(/^https?:\/\//, async route => {
+      if (appOrigin && new URL(route.request().url()).origin === appOrigin) { await route.continue(); return; }
       failures.push(`external request: ${route.request().url()}`);
       await route.abort('internetdisconnected');
     });

@@ -11,7 +11,7 @@ function storage(seed) {
   return { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)) };
 }
 function boot(localStorage = storage(), now = 1700000000000) {
-  const html = fs.readFileSync(path.join(root, 'prototype', 'index.html'), 'utf8');
+  const html = fs.readFileSync(process.env.ALMAS_REPOSITORY_SOURCE || path.join(root, 'prototype', 'index.html'), 'utf8');
   const match = html.match(/\/\/ REPOSITORY START\r?\n([\s\S]*?)\/\/ REPOSITORY END/);
   assert.ok(match, 'The shipped HTML must contain the repository source markers');
   const source = match[1];
