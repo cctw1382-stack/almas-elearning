@@ -14,10 +14,10 @@ function boot(localStorage = storage(), now = 1700000000000) {
   const html = fs.readFileSync(process.env.ALMAS_REPOSITORY_SOURCE || path.join(root, 'prototype', 'index.html'), 'utf8');
   const match = html.match(/\/\/ REPOSITORY START\r?\n([\s\S]*?)\/\/ REPOSITORY END/);
   assert.ok(match, 'The shipped HTML must contain the repository source markers');
-  const source = match[1];
+  const source = match[1].replace('export class MockRepository', 'class MockRepository') + '\n;const repositoryForModuleTest = typeof repository === "undefined" ? new MockRepository() : repository;';
   class Clock extends Date { static now() { return now; } }
   const context = vm.createContext({ localStorage, Date: Clock });
-  vm.runInContext(source + '\n;globalThis.exportsForTest = { MockRepository: typeof MockRepository === "function" ? MockRepository : undefined, repository: typeof repository === "object" ? repository : undefined };', context);
+  vm.runInContext(source + '\n;globalThis.exportsForTest = { MockRepository, repository: repositoryForModuleTest };', context);
   assert.equal(typeof context.exportsForTest.MockRepository, 'function', 'MockRepository must expose the local data API');
   return { ...context.exportsForTest, context, localStorage };
 }
