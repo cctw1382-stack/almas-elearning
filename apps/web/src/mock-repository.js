@@ -1,6 +1,7 @@
 
 "use strict";
 import { LocalPersistence } from './local-persistence';
+import { createAttempt, gradeAttempt } from './exam-attempt';
 // REPOSITORY START
 export class MockRepository {
   #data;
@@ -247,7 +248,7 @@ export class MockRepository {
     this.#timestamp(now);
     const existing = this.#readAttempt(examId, now);
     if (existing && !(retake && existing.status === 'submitted')) return existing;
-    const attempt = { examId, status: 'active', deadline: now + exam.duration * 1000, answers: {}, review: [], current: 0 };
+    const attempt = createAttempt(examId, exam.duration, now);
     this.#data.attempts[examId] = attempt;
     this.#persist();
     return this.#clone(attempt);
@@ -272,7 +273,7 @@ export class MockRepository {
     if (current.status === 'submitted') return this.#clone(current);
     this.#timestamp(now);
     this.#assert(['manual', 'timeout'].includes(reason), 'سبب تقديم المحاولة غير صالح.');
-    const attempt = { ...current, status: 'submitted', score: exam.questions.reduce((score, question) => score + (current.answers[question.id] === question.correct ? 1 : 0), 0), total: exam.questions.length, submittedAt: now, reason: now >= current.deadline ? 'timeout' : reason };
+    const attempt = gradeAttempt(current, exam.questions, now, reason);
     this.#data.attempts[examId] = attempt;
     this.#persist();
     return this.#clone(attempt);

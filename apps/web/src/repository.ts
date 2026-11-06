@@ -16,7 +16,7 @@ export interface LessonState {
 
 export interface Attempt {
   examId: string;
-  status: string;
+  status: 'active' | 'submitted';
   deadline: number;
   answers: Record<string, number>;
   review: string[];
@@ -24,7 +24,7 @@ export interface Attempt {
   score?: number;
   total?: number;
   submittedAt?: number;
-  reason?: string;
+  reason?: 'manual' | 'timeout';
 }
 
 export type PreviewScope = 'student' | 'teacher' | 'admin';

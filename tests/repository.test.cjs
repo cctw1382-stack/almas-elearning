@@ -18,7 +18,7 @@ function boot(localStorage = storage(), now = 1700000000000, source = process.en
   const executable = match[1].replace('export class MockRepository', 'class MockRepository') + '\n;const repositoryForModuleTest = typeof repository === "undefined" ? new MockRepository() : repository;';
   class Clock extends Date { static now() { return now; } }
   const moduleDependencies = process.env.ALMAS_REPOSITORY_SOURCE
-    ? require('../apps/web/src/local-persistence.ts')
+    ? { ...require('../apps/web/src/local-persistence.ts'), ...require('../apps/web/src/exam-attempt.ts') }
     : {};
   const context = vm.createContext({ ...moduleDependencies, localStorage, Date: Clock });
   vm.runInContext(executable + '\n;globalThis.exportsForTest = { MockRepository, repository: repositoryForModuleTest };', context);
