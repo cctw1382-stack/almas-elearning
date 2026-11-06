@@ -10,18 +10,41 @@ function storage(seed) {
   const values = new Map(seed ? [[key, seed]] : []);
   return { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)) };
 }
-function boot(localStorage = storage(), now = 1700000000000) {
-  const html = fs.readFileSync(process.env.ALMAS_REPOSITORY_SOURCE || path.join(root, 'prototype', 'index.html'), 'utf8');
+const prototypeSource = path.join(root, 'prototype', 'index.html');
+function boot(localStorage = storage(), now = 1700000000000, source = process.env.ALMAS_REPOSITORY_SOURCE || prototypeSource) {
+  const html = fs.readFileSync(source, 'utf8');
   const match = html.match(/\/\/ REPOSITORY START\r?\n([\s\S]*?)\/\/ REPOSITORY END/);
   assert.ok(match, 'The shipped HTML must contain the repository source markers');
-  const source = match[1].replace('export class MockRepository', 'class MockRepository') + '\n;const repositoryForModuleTest = typeof repository === "undefined" ? new MockRepository() : repository;';
+  const executable = match[1].replace('export class MockRepository', 'class MockRepository') + '\n;const repositoryForModuleTest = typeof repository === "undefined" ? new MockRepository() : repository;';
   class Clock extends Date { static now() { return now; } }
-  const context = vm.createContext({ localStorage, Date: Clock });
-  vm.runInContext(source + '\n;globalThis.exportsForTest = { MockRepository, repository: repositoryForModuleTest };', context);
+  const moduleDependencies = process.env.ALMAS_REPOSITORY_SOURCE
+    ? require('../apps/web/src/local-persistence.ts')
+    : {};
+  const context = vm.createContext({ ...moduleDependencies, localStorage, Date: Clock });
+  vm.runInContext(executable + '\n;globalThis.exportsForTest = { MockRepository, repository: repositoryForModuleTest };', context);
   assert.equal(typeof context.exportsForTest.MockRepository, 'function', 'MockRepository must expose the local data API');
   return { ...context.exportsForTest, context, localStorage };
 }
 const plain = value => JSON.parse(JSON.stringify(value));
+
+if (process.env.ALMAS_REPOSITORY_SOURCE) {
+  test('web repository opens an old saved attempt and result without rewriting storage', () => {
+    const local = storage();
+    const now = 1700000000000;
+    const old = boot(local, now, prototypeSource).repository;
+    old.startAttempt('e1', now);
+    old.saveAttempt('e1', { answers: { q1: 0 }, current: 1 });
+    const savedAttempt = local.getItem(key);
+    const reopened = boot(local, now).repository;
+    assert.deepEqual(plain(reopened.getAttempt('e1')), plain(old.getAttempt('e1')));
+    assert.equal(local.getItem(key), savedAttempt);
+    const result = old.submitAttempt('e1', now + 1000);
+    const savedResult = local.getItem(key);
+    assert.equal(result.score, 1);
+    assert.deepEqual(plain(boot(local, now).repository.getAttempt('e1')), plain(result));
+    assert.equal(local.getItem(key), savedResult);
+  });
+}
 
 test('seed provides all role collections with string ids and detached nested reads', () => {
   const { repository: repo } = boot();

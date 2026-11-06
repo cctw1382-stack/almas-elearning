@@ -1,28 +1,18 @@
 
 "use strict";
+import { LocalPersistence } from './local-persistence';
 // REPOSITORY START
 export class MockRepository {
   #data;
-  #storage = null;
+  #persistence = new LocalPersistence();
   #sequence = 0;
-  #key = 'almas-demo-v1';
-  storageWarning = '';
+  get storageWarning() { return this.#persistence.warning; }
 
   constructor() {
     this.#data = this.#seed();
-    try {
-      this.#storage = globalThis.localStorage;
-      if (!this.#storage) throw new Error('Storage unavailable');
-      const saved = this.#storage.getItem(this.#key);
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        this.#validateState(parsed);
-        this.#data = parsed;
-      } else this.#persist();
-    } catch (_) {
-      this.#storage = null;
-      this.storageWarning = 'تعذر قراءة التخزين المحلي أو كانت بياناته تالفة. التغييرات محفوظة لهذه الجلسة فقط.';
-    }
+    const saved = this.#persistence.load(() => globalThis.localStorage, value => this.#validateState(value));
+    if (saved === undefined) this.#persist();
+    else this.#data = saved;
   }
 
   #seed() {
@@ -194,9 +184,7 @@ export class MockRepository {
     for (const [id, value] of Object.entries(data.attempts)) this.#attempt(id, value, data);
   }
   #persist() {
-    if (!this.#storage) return;
-    try { this.#storage.setItem(this.#key, JSON.stringify(this.#data)); }
-    catch (_) { this.#storage = null; this.storageWarning = 'تعذر حفظ التخزين المحلي. التغييرات محفوظة لهذه الجلسة فقط.'; }
+    this.#persistence.save(this.#data);
   }
   #id(kind) { let id; do { id = kind + '-' + Date.now() + '-' + (++this.#sequence); } while (this.#data.collections[kind].some(record => record.id === id)); return id; }
   #audit(action, kind, record) {
