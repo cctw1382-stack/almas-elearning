@@ -1,3 +1,5 @@
+import { bindApplicationEvents } from "./controllers/events.js";
+import { createDialogs } from "./controllers/dialogs.js";
 import { createLearningPages } from "./views/learning-pages.js";
 import { createCataloguePages } from "./views/catalogue-pages.js";
 import { createCommunityPages } from "./views/community-pages.js";
@@ -19,7 +21,7 @@ if (repository.getSetting('entered',false) === true) {
   const route = repository.getSetting('page','home');
   state.page = menus[state.role].some(([id])=>id===route)?route:'home';
 }
-let examInterval = null, dialogSubmit = null, dialogTrigger = null;
+let examInterval = null;
 const videoFiles = new Map();
 function button(label, action, id='', extra='') {return '<button type="button" class="btn" data-action="'+esc(action)+'" data-id="'+esc(id)+'" '+extra+'>'+esc(label)+'</button>';}
 function section(title, body) {return '<section class="panel"><h2 tabindex="-1">'+esc(title)+'</h2>'+body+'</section>';}
@@ -47,49 +49,7 @@ function go(page,preview=false,examOpen=false) {
 const { welcome, account, subjectTiles, icon, brandMark, subjectArt } = createPublicPages({ repository, state, button, section, esc, document });
 const { home, recordList, recordsPage } = createCataloguePages({ repository, state, child, childPicker, el, esc, icon, brandMark, section, subjectTiles, card, recordStatus, manager, button, assignmentSubmission, subjectArt, table, titles });
 const { videoPage, examPage } = createLearningPages({ repository, state, section, esc, button, manager, recordsPage });
-function showDialog(title,body,onSubmit=null) {
-  const dialog=el('dialog');dialogTrigger=document.activeElement;dialogSubmit=onSubmit;
-  dialog.innerHTML='<h2 id="dialogTitle">'+esc(title)+'</h2><form id="dialogForm">'+body+'<p id="dialogError" class="error" role="alert"></p></form>';
-  dialog.showModal();dialog.querySelector('[autofocus],input,textarea,select,button')?.focus();
-}
-function field(id,label,value='',type='text',extra='') {return '<label for="'+id+'">'+esc(label)+'</label><input id="'+id+'" name="'+id+'" type="'+type+'" value="'+esc(value)+'" '+extra+'>';}
-function optionFields(question,index,prefix='q') {
-  const id=prefix+index;
-  return '<fieldset class="question-editor" data-qid="'+esc(question?.id||'q-'+Date.now()+'-'+Math.random().toString(36).slice(2))+'"><legend>'+(prefix==='cp'?'سؤال التوقف عند منتصف الفيديو':'سؤال '+(index+1))+'</legend>'+field(id+'text','السؤال',question?.text||'','text','required maxlength="2000"')+['الأول','الثاني','الثالث'].map((name,n)=>field(id+'o'+n,'الخيار '+name,question?.options[n]||'','text','required maxlength="500"')).join('')+'<label for="'+id+'correct">الإجابة الصحيحة</label><select id="'+id+'correct">'+['الأول','الثاني','الثالث'].map((name,n)=>'<option value="'+n+'" '+(question?.correct===n?'selected':'')+'>'+name+'</option>').join('')+'</select>'+(prefix==='q'?button('حذف السؤال','removeQuestion'):'')+'</fieldset>';
-}
-function readQuestion(node,index,prefix='q') {const id=prefix+index;return {id:node.dataset.qid,text:el(id+'text').value.trim(),options:[0,1,2].map(n=>el(id+'o'+n).value.trim()),correct:Number(el(id+'correct').value)};}
-function editRecord(id) {
-  const kind=pageKind(),record=id?repository.get(kind,id):null;
-  if(!manager()||kind==='audit')return;
-  const subjects=repository.list('subjects');
-  const status=record?.status||'نشط';
-  let body=field('recordName','الاسم',record?.name||'','text','required maxlength="120" autofocus')+'<label for="recordDetail">التفاصيل</label><textarea id="recordDetail" maxlength="2000">'+esc(record?.detail||'')+'</textarea>'+field('recordStatus','الحالة',status,'text','required maxlength="120"');
-  if(kind==='subjects')body+=field('recordTeacher','المعلم',record?.teacher||'','text','maxlength="120"');
-  if(['lessons','exams','assignments'].includes(kind))body+='<label for="recordSubject">المادة</label><select id="recordSubject" required>'+subjects.map(s=>'<option value="'+esc(s.id)+'" '+(record?.subjectId===s.id?'selected':'')+'>'+esc(s.name)+'</option>').join('')+'</select>';
-  if(kind==='lessons')body+=field('recordDuration','مدة الدرس',record?.duration||'10 دقائق','text','required maxlength="40"')+optionFields(record?.checkpoint,0,'cp');
-  if(kind==='exams')body+=field('recordDuration','المدة بالدقائق',(record?.duration||300)/60,'number','required min="1" max="180" step="1"')+'<div id="questionEditors">'+(record?.questions||[null]).map((q,i)=>optionFields(q,i)).join('')+'</div>'+button('إضافة سؤال','addQuestion');
-  if(['exams','assignments'].includes(kind))body+='<fieldset><legend>الطلاب المشمولون</legend>'+repository.list('students').map(s=>'<label><input type="checkbox" name="audience" value="'+esc(s.id)+'" '+(!record?.studentIds||record.studentIds.includes(s.id)?'checked':'')+'> '+esc(s.name)+'</label>').join('')+'</fieldset>';
-  if(kind==='students')body+=field('recordGrade','الدرجة',record?.grade||0,'number','required min="0" max="100"')+field('recordProgress','التقدم',record?.progress||0,'number','required min="0" max="100"');
-  body+='<p class="controls"><button class="btn" type="submit">حفظ</button>'+button('إلغاء','closeDialog')+'</p>';
-  showDialog(id?'تعديل سجل':'إضافة سجل',body,()=>{
-    const updated={...(record||{}),name:el('recordName').value.trim(),detail:el('recordDetail').value.trim(),status:el('recordStatus').value.trim()};
-    if(kind==='subjects')updated.teacher=el('recordTeacher').value.trim();
-    if(el('recordSubject'))updated.subjectId=el('recordSubject').value;
-    if(kind==='lessons'){updated.duration=el('recordDuration').value.trim();updated.checkpoint=readQuestion(el('dialog').querySelector('.question-editor'),0,'cp');delete updated.checkpoint.id;}
-    if(kind==='exams'){updated.duration=Number(el('recordDuration').value)*60;updated.questions=[...el('questionEditors').children].map((node,i)=>readQuestion(node,i));}
-    if(['exams','assignments'].includes(kind))updated.studentIds=[...el('dialog').querySelectorAll('[name="audience"]:checked')].map(input=>input.value);
-    if(kind==='students'){updated.grade=Number(el('recordGrade').value);updated.progress=Number(el('recordProgress').value);}
-    repository.save(kind,updated);el('dialog').close();render();notify('تم حفظ السجل محلياً');
-  });
-}
-function details(id) {
-  const kind=pageKind(),x=repository.get(kind,id);if(!x)return;
-  showDialog('تفاصيل '+x.name,'<p>'+esc(x.detail||'بيانات عرض محلية')+'</p><p>الحالة: '+esc(x.status||'تجريبي')+'</p>'+(x.teacher?'<p>المعلم: '+esc(x.teacher)+'</p>':'')+(kind==='exams'?'<p>'+x.questions.length+' أسئلة — '+Math.round(x.duration/60)+' دقائق</p>':'')+(x.subjectId?'<p>المادة: '+esc(repository.get('subjects',x.subjectId)?.name||'')+'</p>':'')+'<p>'+button('إغلاق','closeDialog')+'</p>');
-}
-function deleteRecord(id) {
-  const kind=pageKind(),x=repository.get(kind,id);if(!manager()||!x)return;
-  showDialog('حذف سجل','<p>هل تريد حذف «'+esc(x.name)+'» من بيانات العرض على هذا الجهاز؟</p><p class="controls"><button type="submit" class="btn">تأكيد الحذف</button>'+button('إلغاء','closeDialog')+'</p>',()=>{repository.remove(kind,id);el('dialog').close();render();notify('تم حذف السجل محلياً');});
-}
+const { showDialog, field, optionFields, readQuestion, editRecord, details, deleteRecord, submitDialog } = createDialogs({ repository, el, esc, button, pageKind, manager, render, notify, document });
 function videoState() { return repository.getLessonState(state.lessonId,manager()?state.role:'student'); }
 function saveVideoState(patch) { return repository.saveLessonState(state.lessonId,patch,manager()?state.role:'student'); }
 function updateVideoUI() {
@@ -166,46 +126,6 @@ const actions={
   addQuestion:()=>{const container=el('questionEditors');if(container.children.length>=20)return;container.insertAdjacentHTML('beforeend',optionFields(null,container.children.length));},
   removeQuestion:(_,target)=>{const container=el('questionEditors');const values=[...container.children].map((node,i)=>readQuestion(node,i));values.splice([...container.children].indexOf(target.closest('fieldset')),1);container.innerHTML=values.map((q,i)=>optionFields(q,i)).join('');}
 };
-document.addEventListener('click',event=>{
-  const route=event.target.closest('[data-page]');if(route)return go(route.dataset.page);
-  const target=event.target.closest('[data-action]');if(!target||target.disabled)return;
-  try{const result=actions[target.dataset.action]?.(target.dataset.id,target);if(result?.catch)result.catch(error=>notify(error.message));}catch(error){if(el('dialog').open)el('dialogError').textContent=error.message;else notify(error.message);}
-});
-document.addEventListener('submit',event=>{
-  event.preventDefault();
-  try{
-    if(event.target.id==='dialogForm'){dialogSubmit?.();return;}
-    if(event.target.id==='accountForm'){const name=el('accountName').value.trim();if(name.length<2){el('accountError').textContent='اكتب اسماً مستعاراً من حرفين على الأقل.';return;}repository.setSetting('alias-'+state.role,name);enter();}
-    if(event.target.id==='profileForm'){const name=el('profileName').value.trim();if(name.length<2)throw new Error('اكتب اسماً من حرفين على الأقل.');repository.setSetting('alias-'+state.role,name);notify('تم حفظ الاسم التجريبي');}
-    if(event.target.id==='messageForm'){const text=el('msg').value.trim();if(!text)throw new Error('اكتب الرسالة أولاً.');repository.save('messages',{name:repository.getSetting('alias-'+state.role,'مستخدم تجريبي'),detail:text,role:state.role,status:'مرسل'});render();notify('تمت إضافة الرسالة محلياً؛ لم تُرسل إلى أحد.');}
-  }catch(error){if(el('dialog').open)el('dialogError').textContent=error.message;else notify(error.message);}
-});
-document.addEventListener('input',event=>{
-  if(event.target.id==='search'){state.search=event.target.value;el('resultsList').innerHTML=recordList(pageKind());}
-  if(event.target.id==='volume')el('lessonVideo').volume=Number(event.target.value);
-});
-document.addEventListener('change',event=>{
-  const target=event.target;
-  try{
-    if(target.id==='role'){state.role=target.value;repository.setSetting('role',state.role);go('home');repository.setSetting('entered',true);}
-    if(target.id==='filterStatus'||target.id==='subjectFilter'){state[target.id==='filterStatus'?'filter':'subject']=target.value;el('resultsList').innerHTML=recordList(pageKind());}
-    if(target.id==='childSelect'){repository.setSetting('selectedChild',target.value);render();}
-    if(target.id==='lessonSelect'){state.lessonId=target.value;repository.setSetting('lessonId',target.value);render();}
-    if(target.id==='speed')el('lessonVideo').playbackRate=Number(target.value);
-    if(target.id==='videoFile'){
-      const file=target.files?.[0];if(!file)return;
-      if(!file.type.startsWith('video/')||file.size>250*1024*1024){notify('اختر ملف فيديو صالحاً حتى 250 ميغابايت.');target.value='';return;}
-      const old=videoFiles.get(state.lessonId);if(old)URL.revokeObjectURL(old.url);
-      const entry={url:URL.createObjectURL(file)};videoFiles.set(state.lessonId,entry);el('mediaStatus').textContent='جارٍ تحميل الفيديو المحلي…';el('lessonVideo').src=entry.url;el('lessonVideo').playbackRate=Number(el('speed').value);
-    }
-    if(target.name==='answer'){const a=repository.getAttempt(state.examId),exam=repository.get('exams',state.examId);if(a.status==='active')repository.saveAttempt(state.examId,{answers:{...a.answers,[exam.questions[a.current].id]:Number(target.value)}});else render();}
-    if(target.id==='markReview'){const a=repository.getAttempt(state.examId),q=repository.get('exams',state.examId).questions[a.current];repository.saveAttempt(state.examId,{review:target.checked?[...a.review,q.id]:a.review.filter(id=>id!==q.id)});}
-    storageNotice();
-  }catch(error){notify(error.message);}
-});
-el('dialog').addEventListener('close',()=>{dialogSubmit=null;if(dialogTrigger?.isConnected)dialogTrigger.focus();else el('main').focus();});
-el('theme').addEventListener('click',()=>{document.body.classList.toggle('dark');const dark=document.body.classList.contains('dark');el('theme').setAttribute('aria-pressed',String(dark));repository.setSetting('theme',dark?'dark':'light');storageNotice();});
-if(repository.getSetting('theme','light')==='dark'){document.body.classList.add('dark');el('theme').setAttribute('aria-pressed','true');}
-window.addEventListener('beforeunload',()=>{for(const file of videoFiles.values())URL.revokeObjectURL(file.url);});
+bindApplicationEvents({ document, window, repository, state, actions, go, el, notify, submitDialog, enter, render, recordList, pageKind, videoFiles, storageNotice });
 render();
 
