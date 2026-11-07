@@ -2,6 +2,9 @@
 "use strict";
 import { LocalPersistence } from './local-persistence';
 import { createAttempt, gradeAttempt } from './exam-attempt';
+import { assert, isObject, isSafeKey, assertJson, validateTimestamp } from './data-validation';
+import { validateLessonState, mergeLessonState } from './lesson-state';
+import { validateRecord } from './record-validation';
 // REPOSITORY START
 export class MockRepository {
   #data;
@@ -83,77 +86,15 @@ export class MockRepository {
   }
 
   #clone(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
-  #object(value) { return value !== null && Object.prototype.toString.call(value) === '[object Object]'; }
-  #safeKey(key) { return typeof key === 'string' && key.length > 0 && key.length <= 120 && !['__proto__', 'prototype', 'constructor'].includes(key); }
-  #assert(condition, message) { if (!condition) throw new Error(message); }
-  #json(value, seen = new Set(), depth = 0) {
-    this.#assert(depth < 30, 'بيانات متداخلة أكثر من المسموح.');
-    if (value === null || typeof value === 'boolean' || typeof value === 'string') return;
-    if (typeof value === 'number') { this.#assert(Number.isFinite(value), 'قيمة عددية غير صالحة.'); return; }
-    this.#assert(Array.isArray(value) || this.#object(value), 'قيمة البيانات غير صالحة.');
-    this.#assert(!seen.has(value), 'بيانات دائرية غير صالحة.');
-    seen.add(value);
-    for (const [key, item] of Object.entries(value)) {
-      this.#assert(this.#safeKey(key), 'مفتاح بيانات غير صالح.');
-      this.#json(item, seen, depth + 1);
-    }
-    seen.delete(value);
-  }
-  #text(value, label, limit, required = true) {
-    this.#assert(typeof value === 'string' && (!required || value.trim().length > 0) && value.length <= limit, label + ' مطلوب وبحد أقصى ' + limit + ' حرفاً.');
-  }
-  #range(value, max, label) { this.#assert(typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= max, label + ' يجب أن يكون بين 0 و' + max + '.'); }
-  #timestamp(value) { this.#assert(Number.isSafeInteger(value) && value >= 0 && value <= 8640000000000000, 'وقت المحاولة غير صالح.'); }
+  #object(value) { return isObject(value); }
+  #safeKey(key) { return isSafeKey(key); }
+  #assert(condition, message) { assert(condition, message); }
+  #json(value) { assertJson(value); }
+  #timestamp(value) { validateTimestamp(value); }
   #collection(kind) { this.#assert(Object.hasOwn(this.#data.collections, kind), 'نوع المجموعة غير معروف.'); return this.#data.collections[kind]; }
   #exists(kind, id) { this.#assert(this.#safeKey(id), 'معرّف غير صالح.'); const record = this.#collection(kind).find(item => item.id === id); this.#assert(record, 'العنصر المطلوب غير موجود.'); return record; }
-  #question(question, needsId) {
-    this.#assert(this.#object(question), 'صيغة السؤال غير صالحة.');
-    if (needsId) this.#assert(this.#safeKey(question.id), 'معرّف السؤال غير صالح.');
-    this.#text(question.text, 'نص السؤال', 2000);
-    this.#assert(Array.isArray(question.options) && question.options.length >= 2 && question.options.length <= 6, 'السؤال يحتاج خيارين إلى ستة خيارات.');
-    question.options.forEach(option => this.#text(option, 'خيار السؤال', 500));
-    this.#assert(Number.isInteger(question.correct) && question.correct >= 0 && question.correct < question.options.length, 'خيار الإجابة الصحيحة غير صالح.');
-  }
-  #record(kind, record, data = this.#data) {
-    this.#assert(this.#object(record) && this.#safeKey(record.id), 'معرّف السجل غير صالح.');
-    this.#text(record.name, 'الاسم', 120);
-    if (record.detail !== undefined) this.#text(record.detail, 'التفاصيل', 2000, false);
-    if (record.status !== undefined) this.#text(record.status, 'الحالة', 120);
-    if (record.submission !== undefined) this.#text(record.submission, 'نص التسليم', 5000, false);
-    if (record.teacher !== undefined) this.#text(record.teacher, 'اسم المعلم', 120, false);
-    if (['lessons', 'exams', 'assignments'].includes(kind)) this.#assert(typeof record.subjectId === 'string' && data.collections.subjects.some(subject => subject.id === record.subjectId), 'المادة المرتبطة غير موجودة.');
-    if (['exams', 'assignments'].includes(kind) && record.studentIds !== undefined) {
-      this.#assert(Array.isArray(record.studentIds) && record.studentIds.every(id => this.#safeKey(id) && data.collections.students.some(student => student.id === id)), 'قائمة الطلاب تحتوي معرّف طالب غير صالح أو غير موجود.');
-      this.#assert(new Set(record.studentIds).size === record.studentIds.length, 'قائمة الطلاب تحتوي معرّفات مكررة.');
-    }
-    if (kind === 'assignments' && record.submissions !== undefined) {
-      this.#assert(this.#object(record.submissions), 'صيغة تسليمات الواجب غير صالحة.');
-      for (const [studentId, answer] of Object.entries(record.submissions)) {
-        this.#assert(this.#safeKey(studentId) && data.collections.students.some(student => student.id === studentId), 'تسليم الواجب مرتبط بطالب غير موجود.');
-        this.#text(answer, 'إجابة تسليم الواجب', 5000);
-      }
-    }
-    if (kind === 'lessons') { this.#text(record.duration, 'مدة الدرس', 40); this.#question(record.checkpoint, false); }
-    if (kind === 'exams') {
-      this.#assert(Number.isInteger(record.duration) && record.duration >= 1 && record.duration <= 10800, 'مدة الاختبار يجب أن تكون بين ثانية و180 دقيقة.');
-      this.#assert(Array.isArray(record.questions) && record.questions.length > 0 && record.questions.length <= 100, 'الاختبار يحتاج أسئلة صالحة.');
-      record.questions.forEach(question => this.#question(question, true));
-      this.#assert(new Set(record.questions.map(question => question.id)).size === record.questions.length, 'معرّفات أسئلة الاختبار مكررة.');
-    }
-    if (kind === 'students') { this.#range(record.grade, 100, 'الدرجة'); this.#range(record.progress, 100, 'نسبة التقدم'); }
-    if (kind === 'children') { this.#text(record.grade, 'الصف', 120); this.#range(record.progress, 100, 'نسبة التقدم'); this.#assert(typeof record.studentId === 'string' && data.collections.students.some(student => student.id === record.studentId), 'الطالب المرتبط غير موجود.'); }
-    if (kind === 'attendance') this.#assert(typeof record.childId === 'string' && data.collections.children.some(child => child.id === record.childId), 'الابن المرتبط غير موجود.');
-    if (record.role !== undefined) this.#assert(['all', 'student', 'teacher', 'parent', 'admin'].includes(record.role), 'الدور غير صالح.');
-    if (record.at !== undefined) this.#timestamp(record.at);
-  }
-  #lessonState(value) {
-    this.#assert(this.#object(value), 'بيانات تقدم الدرس غير صالحة.');
-    this.#range(value.percent, 100, 'نسبة التقدم');
-    this.#range(value.seconds, 8640000, 'الوقت بالثواني');
-    this.#text(value.notes, 'الملاحظات', 10000, false);
-    if (value.bookmark !== null) this.#assert(typeof value.bookmark === 'number' && Number.isFinite(value.bookmark) && value.bookmark >= 0 && value.bookmark <= 8640000, 'وقت العلامة المرجعية غير صالح.');
-    this.#assert(typeof value.checkpointAnswered === 'boolean', 'حالة السؤال غير صالحة.');
-  }
+  #record(kind, record, data = this.#data) { validateRecord(kind, record, data); }
+  #lessonState(value) { validateLessonState(value); }
   #attempt(examId, value, data = this.#data) {
     this.#assert(this.#object(value) && value.examId === examId && ['active', 'submitted'].includes(value.status), 'بيانات محاولة الاختبار غير صالحة.');
     this.#timestamp(value.deadline);
@@ -233,11 +174,7 @@ export class MockRepository {
   getLessonState(lessonId, scope = 'student') { const key = this.#lessonKey(lessonId, scope); return this.#clone(this.#data.lessonStates[key] || { percent: 0, seconds: 0, notes: '', bookmark: null, checkpointAnswered: false }); }
   saveLessonState(lessonId, patch, scope = 'student') {
     const key = this.#lessonKey(lessonId, scope);
-    this.#assert(this.#object(patch), 'بيانات تقدم الدرس غير صالحة.');
-    this.#json(patch);
-    this.#assert(Object.keys(patch).every(key => ['percent', 'seconds', 'notes', 'bookmark', 'checkpointAnswered'].includes(key)), 'حقل تقدم الدرس غير معروف.');
-    const value = { ...this.getLessonState(lessonId, scope), ...this.#clone(patch) };
-    this.#lessonState(value);
+    const value = mergeLessonState(this.getLessonState(lessonId, scope), patch);
     this.#data.lessonStates[key] = value;
     this.#persist();
     return this.#clone(value);
