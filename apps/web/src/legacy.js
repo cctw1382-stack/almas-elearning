@@ -1,3 +1,6 @@
+import { createLearningPages } from "./views/learning-pages.js";
+import { createCataloguePages } from "./views/catalogue-pages.js";
+import { createCommunityPages } from "./views/community-pages.js";
 import { createPublicPages } from "./views/public-pages.js";
 import { repository } from "./repository";
 
@@ -42,44 +45,8 @@ function go(page,preview=false,examOpen=false) {
   repository.setSetting('page',page);render();el('main').focus({preventScroll:true});window.scrollTo({top:0,left:0,behavior:'instant'});
 }
 const { welcome, account, subjectTiles, icon, brandMark, subjectArt } = createPublicPages({ repository, state, button, section, esc, document });
-function home() {
-  const lessons=repository.list('lessons'),subjects=repository.list('subjects');
-  const selectedChild=child(),childProgress=selectedChild?(repository.get('students',selectedChild.studentId)?.progress??selectedChild.progress):0;
-  const average=lessons.length?Math.round(lessons.reduce((sum,l)=>sum+repository.getLessonState(l.id).percent,0)/lessons.length):0;
-  const data=state.role==='admin'?[['المستخدمون',repository.list('users').length,'children'],['المدارس',repository.list('schools').length,'home'],['المواد',subjects.length,'subjects'],['الاشتراكات',repository.list('subscriptions').length,'shield']]:state.role==='teacher'?[['الطلاب',repository.list('students').length,'children'],['الدروس',lessons.length,'video'],['الاختبارات',repository.list('exams').length,'exams'],['الواجبات',repository.list('assignments').length,'assignments']]:state.role==='parent'?[['الأبناء',repository.list('children').length,'children'],['الابن المحدد',selectedChild?.name||'لا يوجد','profile'],['الإنجاز',childProgress+'%','results']]:[['المواد',subjects.length,'subjects'],['الدروس',lessons.length,'video'],['تقدم المشاهدة',average+'%','results'],['الاختبارات',repository.list('exams').length,'exams']];
-  const copy={student:['كل يوم، فرصة لتعرف أكثر','اختر مادة تثير فضولك، أكمل درسك، وخذ خطوة جديدة نحو هدفك.','استكشف دروسك','lessons'],teacher:['أهلاً بصانع الأثر','نظّم محتواك التعليمي، حضّر أسئلتك، وتابع خطوات طلابك من مساحتك.','إدارة الدروس','lessons'],parent:['قريب من رحلتهم، في كل خطوة','تابع إنجاز الأبناء ومهامهم، وكن جزءاً من خطواتهم الصغيرة نحو التقدّم.','متابعة الأبناء','children'],admin:['رؤية أوضح، وإدارة أسهل','المستخدمون والمحتوى والتقارير؛ أدواتك اليومية في مساحة منظمة.','إدارة المستخدمين','users']}[state.role];
-  return '<section class="dashboard-hero"><div><p class="eyebrow">'+copy[0]+'</p><h2>مرحباً '+esc(repository.getSetting('alias-'+state.role,'بك في لوحة '+el('role').selectedOptions[0].textContent))+'</h2><p>'+copy[1]+'</p><button type="button" class="btn yellow" data-page="'+copy[3]+'">'+copy[2]+icon('arrow')+'</button></div><div class="dashboard-art">'+brandMark()+'</div></section>'+(state.role==='parent'?section('نظرة على إنجاز الأبناء',childPicker()):'')+'<div class="stat-grid">'+data.map(([name,value,i])=>'<article class="stat-card"><span class="stat-icon">'+icon(i)+'</span><div><h3>'+esc(name)+'</h3><p>'+esc(value)+'</p></div></article>').join('')+'</div>'+(state.role==='student'?'<div class="section-row"><h2>موادك، بداية رحلتك</h2><button type="button" class="btn ghost" data-page="subjects">جميع المواد '+icon('arrow')+'</button></div>'+subjectTiles():section('اختصارات مساحتك','<div class="grid">'+(state.role==='teacher'?[['video','الفيديو والأسئلة','حضّر دروساً يتفاعل معها الطالب.'],['students','متابعة الطلاب','اطّلع على بيانات الطلاب وتقدمهم.'],['results','الإحصائيات','اقرأ مؤشرات مساحتك التعليمية.']]:state.role==='parent'?[['assignments','الواجبات','تعرف إلى المهام المخصصة للابن المحدد.'],['results','الدرجات والإنجاز','تابع النتائج وخطوات التعلّم.'],['messages','الرسائل','تواصل ضمن تجربة العرض المحلية.']]:[['users','المستخدمون','نظّم سجلات مستخدمي العرض.'],['subjects','المواد','أدر المحتوى والمواد التعليمية.'],['audit','سجل العمليات','راجع التغييرات المحلية الأخيرة.']]).map(([id,t,d])=>card(t,'<p>'+d+'</p>','<button type="button" class="btn ghost" data-page="'+id+'">فتح القسم '+icon('arrow')+'</button>')).join('')+'</div>'))+'<p class="dashboard-note">الأرقام محسوبة من بيانات العرض المحلية.'+(state.role==='student'?' هذا الدور يعرض بيانات الطالب الافتراضي '+esc(repository.get('students','u1')?.name||'')+'. الاسم المستعار يغيّر اسم العرض فقط.':'')+'</p>';
-}
-function searchControls(kind) {
-  const statuses=[...new Set([...repository.list(kind).map(x=>recordStatus(x,kind)),state.filter].filter(Boolean))];
-  return '<div class="controls"><div><label for="search">بحث</label><input id="search" type="search" maxlength="120" placeholder="ابحث بالاسم أو التفاصيل" value="'+esc(state.search)+'"></div><div><label for="filterStatus">تصفية الحالة</label><select id="filterStatus"><option value="">كل الحالات</option>'+statuses.map(s=>'<option value="'+esc(s)+'" '+(state.filter===s?'selected':'')+'>'+esc(s)+'</option>').join('')+'</select></div>'+(['lessons','exams','assignments'].includes(kind)?'<div><label for="subjectFilter">تصفية المادة</label><select id="subjectFilter"><option value="">كل المواد</option>'+repository.list('subjects').map(s=>'<option value="'+esc(s.id)+'" '+(state.subject===s.id?'selected':'')+'>'+esc(s.name)+'</option>').join('')+'</select></div>':'')+'</div>';
-}
-function recordList(kind) {
-  const viewer=state.role==='parent'?child()?.studentId:state.role==='student'?'u1':null;
-  const items=repository.list(kind).filter(x=>(x.name+' '+(x.detail||'')+' '+(x.teacher||'')).toLocaleLowerCase('ar').includes(state.search.trim().toLocaleLowerCase('ar'))&&(!state.filter||recordStatus(x,kind)===state.filter)&&(!state.subject||x.subjectId===state.subject)&&(!viewer||!x.studentIds||x.studentIds.includes(viewer)));
-  if(!items.length) return '<p class="muted" role="status">لا توجد سجلات مطابقة لهذا الاختيار.'+(manager()?' غيّر البحث أو أضف سجلاً.':'')+'</p>';
-  const rows=items.map(x=>{
-    let controls=button('التفاصيل','detail',x.id);
-    if(manager()&&kind!=='audit') controls+=button('تعديل','edit',x.id)+button('حذف','delete',x.id);
-    if(kind==='lessons') controls+=button(manager()?'معاينة الفيديو':'فتح الدرس','openVideo',x.id);
-    if(kind==='subjects'&&!manager())controls+=button('دروس المادة','subjectLessons',x.id);
-    if(kind==='exams') {
-      const attempt=repository.getAttempt(x.id);
-      controls+=state.role==='student'?button(attempt?.status==='active'?'استئناف الاختبار':attempt?.status==='submitted'?'عرض النتيجة':'ابدأ الاختبار','openExam',x.id):manager()?button('معاينة الاختبار','previewExam',x.id):'';
-    }
-    if(kind==='assignments'&&state.role==='student')controls+=button(assignmentSubmission(x,'u1')?'تعديل التسليم':'تسليم الواجب','assignment',x.id);
-    if(kind==='assignments'&&manager())controls+=button('عرض التسليمات','submissions',x.id);
-    let detail=esc(x.teacher||x.detail||x.duration||'—');const status='<span class="pill">'+esc(recordStatus(x,kind)||'تجريبي')+'</span>';
-    if(state.role==='parent'&&kind==='exams'){const attempt=child()?.studentId==='u1'?repository.getAttempt(x.id):null;detail+='<p>نتيجة '+esc(child()?.name||'الابن')+': '+(attempt?.status==='submitted'?attempt.score+' من '+attempt.total:attempt?.status==='active'?'محاولة جارية':'لا توجد محاولة محلية لهذا الابن')+'</p>';}
-    if(!manager()&&['subjects','lessons'].includes(kind))return '<article class="card course-card"><div class="course-cover">'+subjectArt(kind==='subjects'?x.name:repository.get('subjects',x.subjectId)?.name||'')+icon(kind==='subjects'?'subjects':'video')+'</div><div class="course-body"><h3>'+esc(x.name)+'</h3><p>'+detail+'</p><p>'+status+'</p><div class="controls">'+controls+'</div></div></article>';
-    if(!manager())return card(x.name,'<p>'+detail+'</p><p>'+status+'</p>',controls);
-    return [esc(x.name),detail,status,'<div class="controls">'+controls+'</div>'];
-  });
-  return manager()?table(['الاسم','التفاصيل','الحالة','الإجراءات'],rows):'<div class="grid">'+rows.join('')+'</div>';
-}
-function recordsPage(kind) {
-  return section(titles[kind]||'السجلات',(state.role==='parent'?childPicker()+'<p>متابعة '+esc(child()?.name||'الابن')+' — '+esc(child()?.grade||'')+'. تظهر المهام المخصصة لهذا الابن؛ التسليم متاح في دور الطالب فقط.</p>':'')+(['payments','subscriptions','providers','permissions'].includes(kind)?'<p class="muted">سجلات محاكاة محلية فقط. لا اتصال بمزود خارجي ولا تغيير لصلاحيات أو دفع حقيقي.</p>':'')+searchControls(kind)+(manager()&&kind!=='audit'?'<p>'+button('إضافة سجل','create')+'</p>':'')+'<div id="resultsList">'+recordList(kind)+'</div>');
-}
+const { home, recordList, recordsPage } = createCataloguePages({ repository, state, child, childPicker, el, esc, icon, brandMark, section, subjectTiles, card, recordStatus, manager, button, assignmentSubmission, subjectArt, table, titles });
+const { videoPage, examPage } = createLearningPages({ repository, state, section, esc, button, manager, recordsPage });
 function showDialog(title,body,onSubmit=null) {
   const dialog=el('dialog');dialogTrigger=document.activeElement;dialogSubmit=onSubmit;
   dialog.innerHTML='<h2 id="dialogTitle">'+esc(title)+'</h2><form id="dialogForm">'+body+'<p id="dialogError" class="error" role="alert"></p></form>';
@@ -125,11 +92,6 @@ function deleteRecord(id) {
 }
 function videoState() { return repository.getLessonState(state.lessonId,manager()?state.role:'student'); }
 function saveVideoState(patch) { return repository.saveLessonState(state.lessonId,patch,manager()?state.role:'student'); }
-function videoPage() {
-  const lessons=repository.list('lessons');if(!lessons.length)return section('مشغل الفيديو التفاعلي','<p>لا توجد دروس. أضف درساً من دور المعلم.</p>');
-  const lesson=lessons.find(x=>x.id===state.lessonId)||lessons[0];state.lessonId=lesson.id;const data=repository.getLessonState(lesson.id,manager()?state.role:'student');
-  return section('مشغل الفيديو التفاعلي','<label for="lessonSelect">الدرس</label><select id="lessonSelect">'+lessons.map(l=>'<option value="'+esc(l.id)+'" '+(l.id===lesson.id?'selected':'')+'>'+esc(l.name)+'</option>').join('')+'</select><h3>'+esc(lesson.name)+'</h3><p class="muted">اختر فيديو من جهازك؛ الملف لا يغادر المتصفح. بعد التحديث أعد اختيار الملف لاستئناف الموضع المحفوظ. المحاكاة متاحة دون ملف.</p><label for="videoFile">اختيار فيديو محلي (حتى 250 ميغابايت)</label><input type="file" id="videoFile" accept="video/*"><p id="mediaStatus" role="status">اختر ملفاً أو جرّب التقدم بالمحاكاة.</p><video id="lessonVideo" controls playsinline preload="metadata" aria-label="مشغل الدرس"></video><div class="controls"><label for="speed">سرعة التشغيل</label><select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select><label for="volume">الصوت</label><input id="volume" type="range" min="0" max="1" step="0.1" value="1">'+button('ملء الشاشة','fullscreen')+'</div><p>التقدم المحفوظ: <strong id="videoPercent">'+data.percent+'%</strong></p><div id="videoProgress" class="progress" role="progressbar" aria-label="تقدم الفيديو" aria-valuenow="'+data.percent+'" aria-valuemin="0" aria-valuemax="100"><span style="width:'+data.percent+'%"></span></div><div class="controls">'+button('تقدم محاكاة 25%','advance')+button('إعادة التقدم','resetVideo')+button('حفظ علامة مرجعية','bookmark')+button('الانتقال إلى العلامة','seekBookmark')+'</div><p id="bookmarkStatus"></p><div id="checkpoint" class="panel" hidden role="group" aria-labelledby="checkpointTitle"><h3 id="checkpointTitle" tabindex="-1">سؤال أثناء المشاهدة</h3><p>'+esc(lesson.checkpoint.text)+'</p><div class="controls">'+lesson.checkpoint.options.map((o,i)=>button(o,'checkpoint',String(i))).join('')+'</div><p id="checkpointError" role="alert" class="error"></p></div><label for="notes">ملاحظاتي الخاصة</label><textarea id="notes" rows="4" maxlength="10000">'+esc(data.notes)+'</textarea><p>'+button('حفظ الملاحظات','saveNotes')+'</p>');
-}
 function updateVideoUI() {
   const data=videoState();el('videoPercent').textContent=data.percent+'%';el('videoProgress').setAttribute('aria-valuenow',data.percent);el('videoProgress').firstElementChild.style.width=data.percent+'%';
   el('bookmarkStatus').textContent=data.bookmark===null?'لا توجد علامة مرجعية.':'علامة مرجعية عند '+Math.floor(data.bookmark)+' ثانية.';
@@ -155,40 +117,13 @@ function bindVideo() {
   if(file)video.src=file.url;
   updateVideoUI();
 }
-function examPage() {
-  const exam=repository.get('exams',state.examId);
-  if(!exam)return recordsPage('exams');
-  if(manager()&&state.preview)return section('معاينة '+exam.name,'<p>معاينة فقط؛ لا تُنشئ محاولة أو نتيجة طالب.</p>'+exam.questions.map((q,i)=>'<fieldset><legend>'+(i+1)+'. '+esc(q.text)+'</legend>'+q.options.map((o,j)=>'<p>'+esc(o)+(j===q.correct?' ✓':'')+'</p>').join('')+'</fieldset>').join('')+button('العودة للاختبارات','backExams'));
-  const attempt=repository.getAttempt(exam.id);if(!attempt)return recordsPage('exams');
-  if(attempt.status==='submitted')return section('نتيجة الاختبار','<h3>'+attempt.score+' من '+attempt.total+'</h3><p>'+Math.round(attempt.score/attempt.total*100)+'% — '+(attempt.reason==='timeout'?'انتهى الوقت وتم تسليم المحاولة تلقائياً.':'تم تسليم الاختبار.')+'</p><p class="muted">نتيجة تجريبية محفوظة على هذا المتصفح.</p>'+exam.questions.map(q=>'<article class="card"><h3>'+esc(q.text)+'</h3><p>إجابتك: '+esc(q.options[attempt.answers[q.id]]||'لم تتم الإجابة')+'</p><p>الإجابة الصحيحة: '+esc(q.options[q.correct])+'</p></article>').join('')+'<p class="controls">'+button('إعادة الاختبار','retake',exam.id)+button('العودة للاختبارات','backExams')+'</p>');
-  const index=Math.min(attempt.current,exam.questions.length-1),q=exam.questions[index];
-  const review=state.examReview?'<div id="examReview" class="panel"><h3>مراجعة الإجابات</h3>'+exam.questions.map((x,i)=>'<p>'+button('السؤال '+(i+1)+' — '+(Object.hasOwn(attempt.answers,x.id)?x.options[attempt.answers[x.id]]:'بلا إجابة')+(attempt.review.includes(x.id)?' — للمراجعة':''),'examQuestion',String(i))+'</p>').join('')+'</div>':'';
-  return section(exam.name,'<p id="examTimer" role="timer" aria-live="off"></p><p>السؤال '+(index+1)+' من '+exam.questions.length+'</p><fieldset id="question"><legend>'+esc(q.text)+'</legend>'+q.options.map((o,j)=>'<label><input type="radio" name="answer" value="'+j+'" '+(attempt.answers[q.id]===j?'checked':'')+'> '+esc(o)+'</label>').join('')+'</fieldset><label><input id="markReview" type="checkbox" '+(attempt.review.includes(q.id)?'checked':'')+'> وضع علامة للمراجعة</label><div class="controls">'+button('السابق','examQuestion',String(index-1),index===0?'disabled':'')+button('التالي','examQuestion',String(index+1),index===exam.questions.length-1?'disabled':'')+button('مراجعة الإجابات','examReview')+button('إرسال الاختبار','submitExam')+'</div>'+review);
-}
 function tickExam() {
   if(!el('examTimer'))return;
   const attempt=repository.getAttempt(state.examId);if(!attempt)return;
   if(attempt.status==='submitted'){if(el('dialog').open)el('dialog').close();render();notify('انتهى وقت الاختبار؛ تم حفظ النتيجة.');return;}
   const seconds=Math.max(0,Math.ceil((attempt.deadline-Date.now())/1000));el('examTimer').textContent='الوقت المتبقي: '+String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
 }
-function parentPage() {
-  const c=child();if(!c)return section('متابعة الأبناء','<p>لا يوجد أبناء في بيانات العرض.</p>');
-  let body=childPicker()+'<p>الصف: '+esc(c.grade)+'</p>';
-  if(state.page==='attendance')body+=table(['الحصة','الحضور'],repository.list('attendance').filter(x=>x.childId===c.id).map(x=>[esc(x.name),esc(x.status)]),'حضور '+c.name);
-  else {const student=repository.get('students',c.studentId);body+='<h3>'+esc(c.name)+'</h3><p>الصف: '+esc(c.grade)+'</p>'+progressBar(student?.progress??c.progress)+'<p>الدرجة التجريبية: '+esc(student?.grade??'غير متاحة')+'</p>';}
-  return section(state.page==='attendance'?'حضور الأبناء':state.page==='children'?'الأبناء':'درجات الأبناء وإنجازهم',body);
-}
-function resultsPage() {
-  if(state.role==='parent')return parentPage();
-  if(manager())return section('التقارير التجريبية',table(['الطالب','الدرجة','التقدم'],repository.list('students').map(s=>[esc(s.name),s.grade+'%',s.progress+'%']))+'<p>عدد الدروس: '+repository.list('lessons').length+' — عدد الاختبارات: '+repository.list('exams').length+'</p>');
-  const lessons=repository.list('lessons');
-  return section('النتائج والتقدم','<div class="grid">'+lessons.map(l=>card(l.name,progressBar(repository.getLessonState(l.id).percent))).join('')+'</div><h3>نتائج الاختبارات</h3>'+repository.list('exams').map(e=>{const a=repository.getAttempt(e.id);return '<p>'+esc(e.name)+': '+(a?.status==='submitted'?a.score+' من '+a.total:a?.status==='active'?'محاولة جارية':'لا توجد محاولة')+'</p>';}).join(''));
-}
-function messagesPage() {
-  return section('الرسائل','<div class="grid">'+repository.list('messages').filter(m=>m.role==='all'||m.role===state.role).map(m=>card(m.name,'<p>'+esc(m.detail)+'</p>')).join('')+'</div><form id="messageForm"><label for="msg">رسالة تجريبية محلية</label><textarea id="msg" required maxlength="2000" rows="3"></textarea><p><button class="btn" type="submit">إرسال تجريبي</button></p></form>');
-}
-function notificationsPage() {return section('الإشعارات',repository.list('notifications').filter(n=>n.role==='all'||n.role===state.role).map(n=>card(n.name,'<p>'+esc(n.detail)+'</p><p>'+esc(n.status)+'</p>',n.status==='جديد'?button('تحديد كمقروء','readNotification',n.id):'')).join(''));}
-function profilePage() {return section('الملف الشخصي التجريبي','<p class="muted">احفظ اسماً مستعاراً للعرض فقط.</p><form id="profileForm">'+field('profileName','الاسم المستعار',repository.getSetting('alias-'+state.role,'مستخدم تجريبي'),'text','required minlength="2" maxlength="120"')+'<p><button class="btn" type="submit">حفظ الملف</button></p></form>');}
+const { parentPage, resultsPage, messagesPage, notificationsPage, profilePage } = createCommunityPages({ repository, state, child, childPicker, esc, section, table, progressBar, manager, card, button, field });
 function render() {
   const oldVideo=el('lessonVideo');if(oldVideo){oldVideo.pause();oldVideo.removeAttribute('src');oldVideo.load();}
   clearInterval(examInterval);el('role').value=state.role;document.body.dataset.experience=manager()?'formal':'learning';
