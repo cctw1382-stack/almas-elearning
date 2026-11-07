@@ -1,4 +1,4 @@
-import { MockRepository } from './mock-repository.js';
+import { MockRepository } from './mock-repository.ts';
 
 export interface DataRecord {
   id: string;

@@ -6,7 +6,7 @@ export class LocalPersistence {
   #storage: StoragePort | null = null;
   warning = '';
 
-  load(resolveStorage: () => StoragePort, validate: (value: unknown) => void): unknown {
+  load<T>(resolveStorage: () => StoragePort, validate: (value: unknown) => asserts value is T): T | undefined {
     try {
       this.#storage = resolveStorage();
       const saved = this.#storage.getItem(storageKey);

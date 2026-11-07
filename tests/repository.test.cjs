@@ -15,7 +15,8 @@ function boot(localStorage = storage(), now = 1700000000000, source = process.en
   const html = fs.readFileSync(source, 'utf8');
   const match = html.match(/\/\/ REPOSITORY START\r?\n([\s\S]*?)\/\/ REPOSITORY END/);
   assert.ok(match, 'The shipped HTML must contain the repository source markers');
-  const executable = match[1].replace('export class MockRepository', 'class MockRepository') + '\n;const repositoryForModuleTest = typeof repository === "undefined" ? new MockRepository() : repository;';
+  let executable = match[1].replace('export class MockRepository', 'class MockRepository') + '\n;const repositoryForModuleTest = typeof repository === "undefined" ? new MockRepository() : repository;';
+  if (source.endsWith('.ts')) executable = require('node:module').stripTypeScriptTypes(executable);
   class Clock extends Date { static now() { return now; } }
   const moduleDependencies = process.env.ALMAS_REPOSITORY_SOURCE
     ? { ...require('../apps/web/src/local-persistence.ts'), ...require('../apps/web/src/exam-attempt.ts'), ...require('../apps/web/src/data-validation.ts'), ...require('../apps/web/src/lesson-state.ts'), ...require('../apps/web/src/record-validation.ts') }
@@ -28,6 +29,27 @@ function boot(localStorage = storage(), now = 1700000000000, source = process.en
 const plain = value => JSON.parse(JSON.stringify(value));
 
 if (process.env.ALMAS_REPOSITORY_SOURCE) {
+  test('typed repository preserves legacy records, scoped notes and settings without rewriting storage', () => {
+    const local = storage();
+    const old = boot(local, 1700000000000, prototypeSource).repository;
+    old.save('subjects', { name: 'مادة محفوظة' });
+    old.saveLessonState('l1', { notes: 'ملاحظة الطالب', percent: 50 });
+    old.saveLessonState('l1', { notes: 'ملاحظة المعلم', bookmark: 12 }, 'teacher');
+    old.setSetting('profile', { name: 'متعلم', preferences: ['dark'] });
+    const before = local.getItem(key);
+    const migrated = boot(local).repository;
+    assert.equal(local.getItem(key), before);
+    for (const kind of Object.keys(JSON.parse(before).collections)) {
+      assert.deepEqual(plain(migrated.list(kind)), plain(old.list(kind)));
+    }
+    assert.equal(migrated.getLessonState('l1').notes, 'ملاحظة الطالب');
+    assert.equal(migrated.getLessonState('l1', 'teacher').bookmark, 12);
+    assert.deepEqual(plain(migrated.getSetting('profile')), { name: 'متعلم', preferences: ['dark'] });
+    migrated.save('subjects', { name: 'مادة جديدة' });
+    const compatible = boot(local, 1700000000000, prototypeSource).repository;
+    assert.deepEqual(plain(compatible.list('subjects')), plain(migrated.list('subjects')));
+    assert.equal(compatible.getLessonState('l1', 'teacher').notes, 'ملاحظة المعلم');
+  });
   test('web repository opens an old saved attempt and result without rewriting storage', () => {
     const local = storage();
     const now = 1700000000000;
