@@ -33,7 +33,7 @@ export function validateRecord(kind: string, record: unknown, data: ReferenceDat
       validateText(answer, 'إجابة تسليم الواجب', 5000);
     }
   }
-  if (kind === 'lessons') { validateText(record.duration, 'مدة الدرس', 40); validateQuestion(record.checkpoint, false); }
+  if (kind === 'lessons') { validateText(record.duration, 'مدة الدرس', 40); if (record.checkpoint !== undefined) validateQuestion(record.checkpoint, false); }
   if (kind === 'exams') {
     assert(typeof record.duration === 'number' && Number.isInteger(record.duration) && record.duration >= 1 && record.duration <= 10800, 'مدة الاختبار يجب أن تكون بين ثانية و180 دقيقة.');
     assert(Array.isArray(record.questions) && record.questions.length > 0 && record.questions.length <= 100, 'الاختبار يحتاج أسئلة صالحة.');

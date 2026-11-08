@@ -55,22 +55,17 @@ function saveVideoState(patch) { return repository.saveLessonState(state.lessonI
 function updateVideoUI() {
   const data=videoState();el('videoPercent').textContent=data.percent+'%';el('videoProgress').setAttribute('aria-valuenow',data.percent);el('videoProgress').firstElementChild.style.width=data.percent+'%';
   el('bookmarkStatus').textContent=data.bookmark===null?'لا توجد علامة مرجعية.':'علامة مرجعية عند '+Math.floor(data.bookmark)+' ثانية.';
-  el('checkpoint').hidden=data.checkpointAnswered||data.percent<50;storageNotice();
+  storageNotice();
 }
 function checkVideoProgress(percent,seconds) {
-  const data=videoState(),video=el('lessonVideo');
-  const blocked=percent>=50&&!data.checkpointAnswered;
-  if(blocked) {video.pause();percent=50;if(Number.isFinite(video.duration)&&seconds>video.duration/2){seconds=video.duration/2;video.currentTime=seconds;}}
-  const wasHidden=el('checkpoint').hidden;
-  saveVideoState({percent:Math.max(0,Math.min(100,Math.floor(percent))),seconds:Math.max(0,seconds)});updateVideoUI();
-  if(blocked&&wasHidden)el('checkpointTitle').focus();
+  saveVideoState({percent:Math.max(0,Math.min(100,Math.floor(percent))),seconds:Math.max(0,seconds)});
+  updateVideoUI();
 }
 function bindVideo() {
   const video=el('lessonVideo'),file=videoFiles.get(state.lessonId);
   const current=()=>video.isConnected&&el('lessonVideo')===video;
   video.addEventListener('loadedmetadata',()=>{if(!current())return;const data=videoState();video.currentTime=Math.min(data.seconds,Number.isFinite(video.duration)?video.duration:0);el('mediaStatus').textContent='الفيديو المحلي جاهز؛ استُعيد موضع المشاهدة.';});
   video.addEventListener('timeupdate',()=>{if(current()&&Number.isFinite(video.duration)&&video.duration>0)checkVideoProgress(video.currentTime/video.duration*100,video.currentTime);});
-  video.addEventListener('play',()=>{if(!current())return;const d=videoState();if(!d.checkpointAnswered&&d.percent>=50)video.pause();});
   video.addEventListener('error',()=>{if(current())el('mediaStatus').textContent='تعذر تشغيل هذا الترميز. اختر فيديو آخر أو استخدم المحاكاة.';});
   video.addEventListener('waiting',()=>{if(current())el('mediaStatus').textContent='جارٍ تحميل الفيديو المحلي…';});
   video.addEventListener('canplay',()=>{if(current())el('mediaStatus').textContent='الفيديو المحلي جاهز للتشغيل.';});
@@ -114,11 +109,10 @@ const actions={
   examReview:()=>{state.examReview=!state.examReview;render();},
   submitExam:()=>{const a=repository.getAttempt(state.examId),exam=repository.get('exams',state.examId);if(a?.status!=='active')return render();const missing=exam.questions.length-Object.keys(a.answers).length;showDialog('تأكيد إرسال الاختبار','<p>أسئلة بلا إجابة: '+missing+'. يمكنك العودة للمراجعة أو إرسال المحاولة الآن.</p><p class="controls"><button class="btn" type="submit">تأكيد الإرسال</button>'+button('إلغاء','closeDialog')+'</p>',()=>{repository.submitAttempt(state.examId);el('dialog').close();render();notify('تم حفظ نتيجة الاختبار');});},
   advance:()=>{const d=videoState(),v=el('lessonVideo');checkVideoProgress(Math.min(100,d.percent+25),Number.isFinite(v.duration)?v.duration*Math.min(100,d.percent+25)/100:d.seconds);},
-  resetVideo:()=>{el('lessonVideo').pause();el('lessonVideo').currentTime=0;saveVideoState({percent:0,seconds:0,checkpointAnswered:false});el('checkpointError').textContent='';updateVideoUI();},
+  resetVideo:()=>{el('lessonVideo').pause();el('lessonVideo').currentTime=0;saveVideoState({percent:0,seconds:0,checkpointAnswered:false});updateVideoUI();},
   saveNotes:()=>{saveVideoState({notes:el('notes').value});notify('تم حفظ الملاحظات محلياً');},
   bookmark:()=>{saveVideoState({bookmark:el('lessonVideo').currentSrc?el('lessonVideo').currentTime:videoState().seconds});updateVideoUI();notify('تم حفظ العلامة المرجعية');},
   seekBookmark:()=>{const d=videoState();if(d.bookmark===null)return notify('احفظ علامة مرجعية أولاً');if(!el('lessonVideo').currentSrc)return notify('أعد اختيار الفيديو المحلي للانتقال إلى العلامة');el('lessonVideo').currentTime=Math.min(d.bookmark,el('lessonVideo').duration||d.bookmark);},
-  checkpoint:id=>{const lesson=repository.get('lessons',state.lessonId);if(Number(id)!==lesson.checkpoint.correct){el('checkpointError').textContent='إجابة غير صحيحة؛ حاول مرة أخرى.';return;}saveVideoState({checkpointAnswered:true});updateVideoUI();notify('إجابة صحيحة؛ يمكنك متابعة الدرس');if(el('lessonVideo').currentSrc)el('lessonVideo').play().catch(()=>notify('اضغط تشغيل لمتابعة الفيديو'));else el('notes').focus();},
   fullscreen:async()=>{try{const v=el('lessonVideo');if(v.requestFullscreen)await v.requestFullscreen();else if(v.webkitEnterFullscreen)v.webkitEnterFullscreen();else notify('استخدم زر ملء الشاشة في أدوات المتصفح');}catch{notify('استخدم زر ملء الشاشة في أدوات الفيديو');}},
   assignment:id=>{const a=repository.get('assignments',id);showDialog(a.name,'<p>'+esc(a.detail)+'</p><label for="submission">إجابتي التجريبية</label><textarea id="submission" rows="4" required maxlength="5000">'+esc(assignmentSubmission(a,'u1'))+'</textarea><p class="controls"><button class="btn" type="submit">حفظ التسليم</button>'+button('إلغاء','closeDialog')+'</p>',()=>{const text=el('submission').value.trim();if(!text)throw new Error('اكتب إجابتك أولاً.');repository.save('assignments',{...a,submissions:{...(a.submissions||{}),u1:text}});el('dialog').close();render();notify('تم حفظ التسليم التجريبي');});},
   submissions:id=>{const a=repository.get('assignments',id),students=repository.list('students').filter(s=>assignmentSubmission(a,s.id));showDialog('تسليمات '+a.name,(students.length?students.map(s=>'<h3>'+esc(s.name)+'</h3><p>'+esc(assignmentSubmission(a,s.id))+'</p>').join(''):'<p>لا توجد تسليمات محلية لهذا الواجب.</p>')+button('إغلاق','closeDialog'));},
