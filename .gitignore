@@ -13,3 +13,9 @@ playwright-report/
 test-results/
 .work/
 .pwa/
+*.dump
+*.backup
+*.key
+*.p12
+*.pfx
+*-realm-export.json
