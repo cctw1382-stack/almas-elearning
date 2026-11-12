@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "WebWorker"],
+    "module": "ESNext",
+    "moduleDetection": "legacy",
+    "types": [],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "outDir": ".pwa",
+    "rootDir": "src"
+  },
+  "include": ["src/service-worker.ts"]
+}

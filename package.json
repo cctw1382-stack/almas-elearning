@@ -7,7 +7,12 @@
     "test:unit": "node --test tests/repository.test.cjs",
     "test:e2e": "playwright test",
     "test": "npm run test:unit && npm run test:e2e",
-    "start": "node scripts/preview.cjs"
+    "start": "node scripts/preview.cjs",
+    "build:web": "npm --prefix apps/web run build",
+    "test:web:unit": "node --test tests/phase2/*.test.cjs",
+    "test:web:e2e": "playwright test -c playwright.web.config.cjs",
+    "test:web:pwa": "playwright test -c tests/phase2/pwa.config.cjs",
+    "preview:web": "npm --prefix apps/web run preview"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
