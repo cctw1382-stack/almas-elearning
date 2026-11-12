@@ -66,10 +66,11 @@ func (s *PostgresAttempts) StartAttempt(ctx context.Context, request StartAttemp
 	var attemptID string
 	var deadline time.Time
 	var revision int
+	var submitted bool
 	err = tx.QueryRow(ctx, `
-		SELECT id::text, deadline, revision FROM almas.exam_attempts
+		SELECT id::text, deadline, revision, submission IS NOT NULL FROM almas.exam_attempts
 		WHERE school_id = $1::uuid AND exam_id = $2::uuid AND user_id = $3::uuid`,
-		request.SchoolId, exam.Id, userID).Scan(&attemptID, &deadline, &revision)
+		request.SchoolId, exam.Id, userID).Scan(&attemptID, &deadline, &revision, &submitted)
 	created := errors.Is(err, pgx.ErrNoRows)
 	if created {
 		deadline = now.Add(time.Duration(exam.DurationSeconds) * time.Second)
@@ -84,14 +85,18 @@ func (s *PostgresAttempts) StartAttempt(ctx context.Context, request StartAttemp
 			return nil, err
 		}
 		if err := tx.QueryRow(ctx, `
-			INSERT INTO almas.exam_attempts (school_id, exam_id, user_id, started_at, deadline, public_exam)
-			VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6::jsonb)
+			INSERT INTO almas.exam_attempts (school_id, exam_id, user_id, started_at, deadline, public_exam, grading_key)
+			VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6::jsonb, (
+				SELECT jsonb_object_agg(question_id, id)
+				FROM almas.exam_options
+				WHERE school_id = $1::uuid AND exam_id = $2::uuid AND is_correct
+			))
 			RETURNING id::text`, request.SchoolId, exam.Id, userID, now, deadline, snapshot).Scan(&attemptID); err != nil {
 			return nil, err
 		}
 	} else if err != nil {
 		return nil, err
-	} else if !deadline.After(now) {
+	} else if submitted || !deadline.After(now) {
 		return startClosed(), nil
 	}
 	answers, err := loadAttemptAnswers(ctx, tx, target)

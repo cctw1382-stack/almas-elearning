@@ -80,8 +80,8 @@ func attemptKeyConflict() Error {
 	return Error{Code: IdempotencyConflict, Message: "مفتاح الطلب مستخدم أو منتهي.", RequestId: uuid.NewString()}
 }
 
-func recordAttemptReceipt(ctx context.Context, tx pgx.Tx, scope attemptScope, key, operation, fingerprint string, created bool, now time.Time, active ActiveAttempt) error {
-	body, err := json.Marshal(active)
+func recordAttemptReceipt(ctx context.Context, tx pgx.Tx, scope attemptScope, key, operation, fingerprint string, created bool, now time.Time, response any) error {
+	body, err := json.Marshal(response)
 	if err != nil {
 		return err
 	}

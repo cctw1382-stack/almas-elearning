@@ -34,13 +34,14 @@ func (s *PostgresAttempts) SaveAnswer(ctx context.Context, request SaveAnswerReq
 	var deadline time.Time
 	var closedAt *time.Time
 	var frozen []byte
+	var submitted bool
 	err = tx.QueryRow(ctx, `
-		SELECT a.id::text, a.exam_id::text, a.deadline, a.closed_at, a.revision, a.public_exam
+		SELECT a.id::text, a.exam_id::text, a.deadline, a.closed_at, a.revision, a.public_exam, a.submission IS NOT NULL
 		FROM almas.exam_attempts AS a
 		JOIN almas.exams AS e ON e.school_id = a.school_id AND e.id = a.exam_id
 		WHERE a.school_id = $1::uuid AND a.id = $2::uuid AND a.user_id = $3::uuid
 		FOR UPDATE OF a`, request.SchoolId, request.AttemptId, user).
-		Scan(&active.Id, &active.ExamId, &deadline, &closedAt, &active.Revision, &frozen)
+		Scan(&active.Id, &active.ExamId, &deadline, &closedAt, &active.Revision, &frozen, &submitted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return answerNotFound(), nil
 	}
@@ -68,7 +69,7 @@ func (s *PostgresAttempts) SaveAnswer(ctx context.Context, request SaveAnswerReq
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
-	if closedAt != nil || !deadline.After(now) {
+	if submitted || closedAt != nil || !deadline.After(now) {
 		return closeLateAnswer(ctx, tx, active.Id, scope)
 	}
 	if active.Revision != request.Body.ExpectedRevision || active.Revision == 2147483647 {

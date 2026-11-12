@@ -197,4 +197,51 @@ func TestPostgresSaveAnswer(t *testing.T) {
 			t.Fatalf("late write altered state: closed=%v revision=%d answers=%d error=%v", closed, revision, answers, err)
 		}
 	})
+	t.Run("submission replays the same final result", func(t *testing.T) {
+		submit := SubmitAttemptRequestObject{
+			SchoolId: school, AttemptId: initial.Id,
+			Params: SubmitAttemptParams{IdempotencyKey: "00000000-0000-4000-8000-000000000409"},
+			Body:   &SubmitAttemptJSONRequestBody{ExpectedRevision: 2},
+		}
+		response, err := store.SubmitAttempt(ctx, submit)
+		final, ok := response.(SubmitAttempt200JSONResponse)
+		if err != nil || !ok || final.Reason != Manual || final.Total != 1 || len(final.Answers) != 1 {
+			t.Fatalf("expected a graded result from the saved attempt: %T %v", response, err)
+		}
+		replay, err := store.SubmitAttempt(ctx, submit)
+		if err != nil || !reflect.DeepEqual(replay, final) {
+			t.Fatalf("same key must replay the final result: %T %v", replay, err)
+		}
+		submit.Params.IdempotencyKey = "00000000-0000-4000-8000-000000000410"
+		replay, err = store.SubmitAttempt(ctx, submit)
+		if err != nil || !reflect.DeepEqual(replay, final) {
+			t.Fatalf("new key must preserve the final result: %T %v", replay, err)
+		}
+	})
+	t.Run("grading uses the saved key after the live correct option changes", func(t *testing.T) {
+		resume := start
+		resume.ExamId = "00000000-0000-4000-8000-000000000048"
+		resume.Params.IdempotencyKey = "00000000-0000-4000-8000-000000000411"
+		response, err := store.StartAttempt(ctx, resume)
+		active, ok := response.(StartAttempt200JSONResponse)
+		if err != nil || !ok {
+			t.Fatalf("resume grading fixture: %T %v", response, err)
+		}
+		answer := request(firstOption, "00000000-0000-4000-8000-000000000412", 0)
+		answer.AttemptId = active.Id
+		saved, err := store.SaveAnswer(ctx, answer)
+		if _, ok := saved.(SaveAnswer200JSONResponse); err != nil || !ok {
+			t.Fatalf("save formerly correct option: %T %v", saved, err)
+		}
+		submit := SubmitAttemptRequestObject{
+			SchoolId: school, AttemptId: active.Id,
+			Params: SubmitAttemptParams{IdempotencyKey: "00000000-0000-4000-8000-000000000413"},
+			Body:   &SubmitAttemptJSONRequestBody{ExpectedRevision: 1},
+		}
+		graded, err := store.SubmitAttempt(ctx, submit)
+		final, ok := graded.(SubmitAttempt200JSONResponse)
+		if err != nil || !ok || final.Score != 1 || final.Total != 1 {
+			t.Fatalf("expected grade from the frozen key: %T %v", graded, err)
+		}
+	})
 }
