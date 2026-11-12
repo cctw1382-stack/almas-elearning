@@ -29,6 +29,14 @@ func (probe postgresReadProbe) SaveAnswer(ctx context.Context, request SaveAnswe
 	return probe.attempts.SaveAnswer(ctx, request)
 }
 
+func (probe postgresReadProbe) GetAttempt(ctx context.Context, request GetAttemptRequestObject) (GetAttemptResponseObject, error) {
+	return probe.attempts.GetAttempt(ctx, request)
+}
+
+func (probe postgresReadProbe) SubmitAttempt(ctx context.Context, request SubmitAttemptRequestObject) (SubmitAttemptResponseObject, error) {
+	return probe.attempts.SubmitAttempt(ctx, request)
+}
+
 func (probe postgresReadProbe) GetStudentExam(ctx context.Context, request GetStudentExamRequestObject) (GetStudentExamResponseObject, error) {
 	return probe.exams.GetStudentExam(ctx, request)
 }
@@ -186,6 +194,38 @@ func TestKeycloakPostgresSession(t *testing.T) {
 			if err := json.Unmarshal(original, &saved); err != nil || saved.Revision != 1 || len(saved.Answers) != 1 ||
 				saved.Answers[0] != (SavedAnswer{OptionId: option, QuestionId: question}) {
 				t.Fatalf("unexpected saved answer: %+v", saved)
+			}
+		})
+		t.Run("read final attempt over HTTP", func(t *testing.T) {
+			path := "/api/v1/schools/00000000-0000-4000-8000-000000000011/attempts/" + attempt.Id
+			call := func(method, suffix, body string) []byte {
+				t.Helper()
+				req, err := http.NewRequestWithContext(ctx, method, server.URL+path+suffix, bytes.NewBufferString(body))
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.Header.Set("Authorization", "Bearer "+token)
+				if method == http.MethodPost {
+					req.Header.Set("Idempotency-Key", "00000000-0000-4000-8000-000000000313")
+					req.Header.Set("Content-Type", "application/json")
+				}
+				res, err := server.Client().Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer res.Body.Close()
+				data, err := io.ReadAll(res.Body)
+				if err != nil || res.StatusCode != http.StatusOK {
+					t.Fatalf("%s attempt status %d: %v", method, res.StatusCode, err)
+				}
+				return data
+			}
+			submitted := call(http.MethodPost, "/submit", `{"expectedRevision":1}`)
+			read := call(http.MethodGet, "", "")
+			var expected, actual SubmittedAttempt
+			if json.Unmarshal(submitted, &expected) != nil || json.Unmarshal(read, &actual) != nil ||
+				expected.Status != Submitted || expected.Score != 1 || !reflect.DeepEqual(expected, actual) {
+				t.Fatal("GET did not return the saved submission")
 			}
 		})
 	})

@@ -75,50 +75,10 @@ func (s *PostgresAttempts) SubmitAttempt(ctx context.Context, request SubmitAtte
 		if deadline.After(now) && result.Revision != request.Body.ExpectedRevision {
 			return SubmitAttempt409JSONResponse(Error{Code: RevisionConflict, Message: "تغيرت المحاولة. حدّث المراجعة قبل التسليم.", RequestId: uuid.NewString()}), nil
 		}
-		var exam StudentExam
-		var correct map[string]string
-		if err := json.Unmarshal(snapshot, &exam); err != nil {
-			return nil, err
-		}
-		if grading != nil {
-			if err := json.Unmarshal(grading, &correct); err != nil {
-				return nil, err
-			}
-		}
-		if len(exam.Questions) == 0 || len(correct) != len(exam.Questions) {
-			return unavailableGrading(), nil
-		}
-		for _, question := range exam.Questions {
-			if !containsFrozenOption(exam, question.Id, correct[question.Id]) {
+		if err := finalizeAttempt(ctx, tx, scope, &result, deadline, snapshot, grading); err != nil {
+			if errors.Is(err, errGradingUnavailable) {
 				return unavailableGrading(), nil
 			}
-		}
-		result.Answers, err = loadAttemptAnswers(ctx, tx, scope)
-		if err != nil {
-			return nil, err
-		}
-		for _, answer := range result.Answers {
-			if correct[answer.QuestionId] == answer.OptionId {
-				result.Score++
-			}
-		}
-		now, err = databaseNow(ctx, tx)
-		if err != nil {
-			return nil, err
-		}
-		result.Reason = Manual
-		if !deadline.After(now) {
-			result.Reason = Timeout
-		}
-		result.Status, result.Total = Submitted, len(exam.Questions)
-		result.Deadline, result.ServerTime, result.SubmittedAt = deadline.UnixMilli(), now.UnixMilli(), now.UnixMilli()
-		body, err := json.Marshal(result)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := tx.Exec(ctx, `
-			UPDATE almas.exam_attempts SET submission = $1::jsonb
-			WHERE id = $2::uuid AND submission IS NULL`, body, result.Id); err != nil {
 			return nil, err
 		}
 	}
@@ -137,4 +97,57 @@ func (s *PostgresAttempts) SubmitAttempt(ctx context.Context, request SubmitAtte
 
 func unavailableGrading() SubmitAttempt409JSONResponse {
 	return SubmitAttempt409JSONResponse(Error{Code: AttemptClosed, Message: "نسخة تصحيح هذه المحاولة غير متاحة.", RequestId: uuid.NewString()})
+}
+
+var errGradingUnavailable = errors.New("frozen grading key unavailable")
+
+func finalizeAttempt(ctx context.Context, tx pgx.Tx, scope attemptScope, result *SubmittedAttempt, deadline time.Time, snapshot, grading []byte) error {
+	var exam StudentExam
+	var correct map[string]string
+	if err := json.Unmarshal(snapshot, &exam); err != nil {
+		return err
+	}
+	if grading != nil {
+		if err := json.Unmarshal(grading, &correct); err != nil {
+			return err
+		}
+	}
+	if len(exam.Questions) == 0 || len(correct) != len(exam.Questions) {
+		return errGradingUnavailable
+	}
+	for _, question := range exam.Questions {
+		if !containsFrozenOption(exam, question.Id, correct[question.Id]) {
+			return errGradingUnavailable
+		}
+	}
+	answers, err := loadAttemptAnswers(ctx, tx, scope)
+	if err != nil {
+		return err
+	}
+	for _, answer := range answers {
+		if correct[answer.QuestionId] == answer.OptionId {
+			result.Score++
+		}
+	}
+	result.Answers = answers
+	now, err := databaseNow(ctx, tx)
+	if err != nil {
+		return err
+	}
+	result.Reason = Manual
+	if !deadline.After(now) {
+		result.Reason = Timeout
+	}
+	result.Status, result.Total = Submitted, len(exam.Questions)
+	result.Deadline, result.ServerTime, result.SubmittedAt = deadline.UnixMilli(), now.UnixMilli(), now.UnixMilli()
+	body, err := json.Marshal(result)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE almas.exam_attempts SET submission = $1::jsonb
+		WHERE id = $2::uuid AND submission IS NULL`, body, result.Id); err != nil {
+		return err
+	}
+	return nil
 }

@@ -217,6 +217,21 @@ func TestPostgresSaveAnswer(t *testing.T) {
 		if err != nil || !reflect.DeepEqual(replay, final) {
 			t.Fatalf("new key must preserve the final result: %T %v", replay, err)
 		}
+		read := GetAttemptRequestObject{SchoolId: school, AttemptId: initial.Id}
+		got, err := store.GetAttempt(ctx, read)
+		body, ok := got.(GetAttempt200JSONResponse)
+		if err != nil || !ok {
+			t.Fatalf("read final result: %T %v", got, err)
+		}
+		state, err := GetAttempt200JSONResponseBody(body).AsSubmittedAttempt()
+		if err != nil || !reflect.DeepEqual(state, SubmittedAttempt(final)) {
+			t.Fatalf("read did not return the stored result: %v", err)
+		}
+		foreign := context.WithValue(ctx, identityContextKey{}, VerifiedIdentity{Issuer: identity.Issuer, Subject: "shared-subject"})
+		got, err = store.GetAttempt(foreign, read)
+		if _, ok := got.(GetAttempt404JSONResponse); err != nil || !ok {
+			t.Fatalf("foreign learner read: %T %v", got, err)
+		}
 	})
 	t.Run("grading uses the saved key after the live correct option changes", func(t *testing.T) {
 		resume := start
@@ -242,6 +257,31 @@ func TestPostgresSaveAnswer(t *testing.T) {
 		final, ok := graded.(SubmitAttempt200JSONResponse)
 		if err != nil || !ok || final.Score != 1 || final.Total != 1 {
 			t.Fatalf("expected grade from the frozen key: %T %v", graded, err)
+		}
+	})
+	t.Run("read finalizes expired unanswered attempt once", func(t *testing.T) {
+		tx, err := beginIdentityRead(ctx, pool, identity)
+		if err != nil {
+			t.Fatal(err)
+		}
+		read := GetAttemptRequestObject{SchoolId: school}
+		err = tx.QueryRow(ctx, `SELECT id::text FROM almas.exam_attempts WHERE exam_id = '00000000-0000-4000-8000-000000000049'`).Scan(&read.AttemptId)
+		_ = tx.Rollback(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := store.GetAttempt(ctx, read)
+		body, ok := got.(GetAttempt200JSONResponse)
+		if err != nil || !ok {
+			t.Fatalf("read expired attempt: %T %v", got, err)
+		}
+		state, err := body.AsSubmittedAttempt()
+		if err != nil || state.Reason != Timeout || state.Score != 0 || state.Total != 1 || len(state.Answers) != 0 {
+			t.Fatalf("expected zero for the unanswered question: %+v %v", state, err)
+		}
+		replay, err := store.GetAttempt(ctx, read)
+		if err != nil || !reflect.DeepEqual(replay, got) {
+			t.Fatalf("timeout result changed: %T %v", replay, err)
 		}
 	})
 }
