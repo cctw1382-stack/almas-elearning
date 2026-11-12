@@ -1,0 +1,53 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Almas record transport", "version": "0.1.0", "description": "Phase-two development transport only. Not a production authorization contract. Exams, private student data and identity require separate production contracts."},
+  "servers": [{"url": "http://127.0.0.1:8080/api/v1"}],
+  "paths": {
+    "/records/{kind}": {
+      "parameters": [{"$ref": "#/components/parameters/Kind"}],
+      "get": {"operationId": "listRecords", "responses": {
+        "200": {"description": "Records", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Record"}}}}},
+        "404": {"description": "Unknown collection"},
+        "default": {"description": "Request failed; client must not treat this as an empty list"}
+      }},
+      "post": {"operationId": "createRecord", "requestBody": {"$ref": "#/components/requestBodies/Write"}, "responses": {
+        "201": {"$ref": "#/components/responses/Saved"},
+        "400": {"description": "Invalid record"},
+        "default": {"description": "Write failed"}
+      }}
+    },
+    "/records/{kind}/{id}": {
+      "parameters": [{"$ref": "#/components/parameters/Kind"}, {"$ref": "#/components/parameters/Id"}],
+      "get": {"operationId": "getRecord", "responses": {
+        "200": {"$ref": "#/components/responses/Saved"},
+        "404": {"description": "Record absent; client returns null"},
+        "default": {"description": "Read failed"}
+      }},
+      "put": {"operationId": "updateRecord", "requestBody": {"$ref": "#/components/requestBodies/Write"}, "responses": {
+        "200": {"$ref": "#/components/responses/Saved"},
+        "400": {"description": "Invalid record"},
+        "404": {"description": "Record absent"},
+        "409": {"description": "Conflicting write"},
+        "default": {"description": "Write failed"}
+      }},
+      "delete": {"operationId": "deleteRecord", "responses": {
+        "204": {"description": "Deleted"},
+        "404": {"description": "Already absent; client returns false"},
+        "409": {"description": "Record has references"},
+        "default": {"description": "Delete failed"}
+      }}
+    }
+  },
+  "components": {
+    "parameters": {
+      "Kind": {"name": "kind", "in": "path", "required": true, "schema": {"type": "string", "pattern": "^[a-z]+$", "maxLength": 120}},
+      "Id": {"name": "id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 120}}
+    },
+    "schemas": {
+      "Record": {"type": "object", "required": ["id", "name"], "properties": {"id": {"type": "string", "minLength": 1, "maxLength": 120}, "name": {"type": "string"}}, "additionalProperties": true},
+      "Write": {"type": "object", "required": ["name"], "properties": {"id": {"type": "string"}, "name": {"type": "string"}}, "additionalProperties": true}
+    },
+    "requestBodies": {"Write": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Write"}}}}},
+    "responses": {"Saved": {"description": "Saved record", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Record"}}}}}
+  }
+}
