@@ -232,6 +232,11 @@ func TestPostgresSaveAnswer(t *testing.T) {
 		if _, ok := got.(GetAttempt404JSONResponse); err != nil || !ok {
 			t.Fatalf("foreign learner read: %T %v", got, err)
 		}
+		read.SchoolId = "00000000-0000-4000-8000-000000000012"
+		got, err = store.GetAttempt(ctx, read)
+		if _, ok := got.(GetAttempt404JSONResponse); err != nil || !ok {
+			t.Fatalf("changed school must hide the attempt: %T %v", got, err)
+		}
 	})
 	t.Run("grading uses the saved key after the live correct option changes", func(t *testing.T) {
 		resume := start

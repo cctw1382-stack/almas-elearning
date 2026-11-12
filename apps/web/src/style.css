@@ -23,3 +23,6 @@ body[data-entry=true] .layout{display:block;max-width:none}body[data-entry=true]
 
 .pwa-panel{max-width:1200px;margin:20px auto;padding:16px 24px;color:var(--text);font-size:.9rem}.pwa-panel p{margin:0 0 12px}.pwa-panel [hidden]{display:none!important}#pwaUpdate{border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:20px;margin-top:14px}.pwa-panel .controls{margin:12px 0 0}
 body{color-scheme:light}body.dark{color-scheme:dark}
+.layout.student-exam-layout{grid-template-columns:minmax(0,1fr)}
+.student-exam-layout fieldset{margin-block:1rem;min-width:0}
+.student-exam-layout fieldset label{display:flex;align-items:center;gap:.5rem;min-height:44px}

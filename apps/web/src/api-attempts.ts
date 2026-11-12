@@ -73,6 +73,15 @@ export class ApiAttempts implements AsyncAttempts {
     return this.request('attempts/' + identifier(attemptId), 'GET');
   }
 
+  async exam(examId: string): Promise<Schemas['StudentExam']> {
+    const response = await this.transport(new URL('exams/' + identifier(examId), this.scope), {
+      headers: { Accept: 'application/json', Authorization: 'Bearer ' + await this.accessToken() },
+      credentials: 'omit', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(15000),
+    });
+    assert(response.ok, 'تعذر فتح الاختبار (' + response.status + ').');
+    return await response.json() as Schemas['StudentExam'];
+  }
+
   async save(attemptId: string, questionId: string, answer: Schemas['AnswerWrite'], key: string): Promise<ActiveAttempt> {
     const state = await this.request('attempts/' + identifier(attemptId) + '/answers/' + identifier(questionId), 'PUT', answer, key);
     assert(state.status === 'active', 'المحاولة غير نشطة.');

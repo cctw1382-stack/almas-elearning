@@ -58,7 +58,7 @@ Go وPostgreSQL وKeycloak محلياً، وهوية الماس بمكعبين،
 
 ## المهمة التالية الوحيدة
 
-وصل مزوّد المحاولات بجلسة الطالب وصفحة الاختبار، ثم اختبر Refresh وعرض النتيجة في متصفح.
+تنفيذ مسار ولي الأمر للطفل المرتبط واختبار رفض تغيير `childId` و`schoolId` على مستوى HTTP.
 
 ## إعادة G0
 
@@ -74,6 +74,14 @@ Go وPostgreSQL وKeycloak محلياً، وهوية الماس بمكعبين،
 نجح `npm run test:web:e2e` على النسخة المبنية من شجرة P2 المحلية، 167 نجاحاً وحالة ترميز واحدة متخطاة، دون إخفاق. الدليل `.work/p2-resume-e2e.log`. تبقى تغييرات P2 الموجودة مسبقاً في شجرة العمل، ويبقى PR المرحلة مفتوحاً كمتطلب.
 
 ## تحقق P3
+
+نجحت فحوص الويب والنموذج وAPI على `51ac25d` و`30a4794`. على `124ae06` نجح الويب وAPI وكان النموذج قيد التشغيل وقت الفحص.
+
+صفحة الطالب المتصلة `/student/exam?schoolId=…&examId=…` تعمل عند ضبط `VITE_ALMAS_ISSUER` و`VITE_ALMAS_CLIENT_ID` أثناء البناء. يوجّه `/auth/callback` إلى التطبيق، وتوجّه البوابة `/api/v1/` إلى Go على الأصل نفسه، أو يضبط `VITE_ALMAS_API_BASE` بعنوان API المسموح من المتصفح. يحتفظ URL بمعرّف المحاولة وتعيد الصفحة مصادقة الجلسة عبر Keycloak عند Refresh. يحفظ `ApiAttempts` الإجابة ويعرض النتيجة الصادرة من الخادم. المسار الافتراضي يبقى Mock.
+
+فشل اختبار Playwright أولاً عند غياب زر دخول الطالب. ثم نجحت حالتا Chromium للتسليم اليدوي وانتهاء الوقت بعد الحفظ وRefresh، مع محاكاة نقاط Keycloak وAPI. نجح بناء Vite وحالتا امتحان Mock على النسخة المبنية. الأدلة `.work/p3-student-live-red.log` و`.work/p3-student-live-green.log` و`.work/p3-student-mock.log`. يبقى تشغيل المسار المتصل في المتصفح أمام Keycloak وGo فعليين، وإحضار نص الأسئلة من نسخة المحاولة، وعزل ولي الأمر واختبارات تغيير الطفل ضمن قبول P3.
+
+نجح اختبار قراءة محاولة طالب آخر وقراءة المحاولة نفسها بعد تبديل `schoolId` على PostgreSQL قبل الاستعادة وبعدها. كلا الطلبين أعاد 404. الدليل `.work/p3-student-school-isolation.log`.
 
 متابعة Actions: على `51ac25d` و`30a4794` نجح Go وPostgreSQL. بقي فحصا الويب والنموذج قيد التشغيل وقت الاستعلام. [ويب 51ac25d](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43310151276) · [نموذج 51ac25d](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43310151405) · [ويب 30a4794](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43310527219) · [نموذج 30a4794](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43310527279).
 
