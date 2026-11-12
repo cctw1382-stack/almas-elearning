@@ -1,6 +1,7 @@
 # CODEX STATE — 2026-11-12
 
-الفرع عند بدء التدقيق `feat/phase2-pwa-foundation` عند `b8ad5d340bd1271873c1bd9c0bf3e07fecf563fb` مع تغييرات محلية تخص P2 وP3.
+فرع التقرير المحلي `feat/g0-state`. بدأ التدقيق على `feat/phase2-pwa-foundation` عند `b8ad5d340bd1271873c1bd9c0bf3e07fecf563fb` مع تغييرات محلية تخص P2 وP3.
+تعذر رفع الفرع المحلي إلى GitHub. وصل Git إلى الخادم خارج عزل الأوامر، لكن إعادة المحاولة غير التفاعلية لم تجد مصادقة HTTPS متاحة. لم يظهر الفرع في GitHub، ولم يُفتح PR لـ G0.
 SHA رأس `main` بحسب GitHub هو `dd44d09d399f3884f2d6c5cdd3e8041e5e4b373e`.
 رأس PR #1 المفتوح هو `b0f84d157b371ccb357bdeae68a5abc630fefe72`. أعاد GitHub حالة `mergeable: false` ونتيجة ناجحة لأحدث تشغيل معروض لرأسه. أعادت بيانات PR قيمة base SHA مختلفة عن رأس main الحالي، لذا تُحفظ النقطتان منفصلتين. [الطلب](https://github.com/cctw1382-stack/almas-elearning/pull/1) · [التشغيل](https://github.com/cctw1382-stack/almas-elearning/actions/runs/41222006796).
 لم يظهر ملف Handover في المستودع أو المرفقات المحلية التي فُحصت، والمطابقة أدناه تتبع جدول المالك.
@@ -36,7 +37,8 @@ Go وPostgreSQL وKeycloak محلياً، وهوية الماس بمكعبين،
 
 ## آخر نتائج الاختبار
 
-`npm run test:unit` نجح 20/20 على شجرة العمل. سُجل التشغيل الكامل في `.work/g0-full.log`.
+`npm run test:unit` نجح 20/20 على شجرة العمل. سُجل التشغيل الكامل في `.work/g0-full.log`. تأكد تطابق ملفات الاختبار والنموذج وإعداد Playwright مع HEAD بفحص الفرق الخاص بها.
+انهار Firefox داخل عزل الأوامر برمز 3221225477 قبل فتح التطبيق. نجحت إعادة حالة الوصول الموجّهة خارجه 1/1 في `.work/g0-firefox-host.log`. إعادة مجموعة Firefox خارج العزل في `.work/g0-firefox-host-full.log`.
 
 ## المهمة التالية الوحيدة
 
