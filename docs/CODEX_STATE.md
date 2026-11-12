@@ -11,7 +11,9 @@
 | P2 | `2d2b33f90a8abde53ceb3a089cc66101c4509620` | [#6](https://github.com/cctw1382-stack/almas-elearning/pull/6) | [43299376500](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299376500) قيد التشغيل، [43299376501](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299376501) قيد التشغيل |
 | P3 | `0b035453abda4e85da0615b5a3f62fd828b51aca` | [#7](https://github.com/cctw1382-stack/almas-elearning/pull/7) | [43299389193](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299389193) قيد التشغيل، [43299389122](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299389122) في الطابور |
 
-رأس PR #7 يحمل أدلة العمل. مجلد `apps/api` ما زال محلياً خارج الملفات المتتبعة، لذلك لا يُستدل من تشغيلات هذا الرأس على اختبار Go أو PostgreSQL.
+رُفع خط أساس `apps/api` مع العقد في `017b6da`، ثم أضيف سير عمل API في `eb77b4b` ورُفع مع `be5994e` إلى PR #7. لم يكشف فحص الأنماط في الملفات المضافة عن سر. نجحت محلياً أوامر `go test -count=1 ./...` و`go vet ./...` و`go mod verify` خارج العزل. [تشغيل API على SHA eb77b4b](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43300529294).
+نسخة اختبار RED محفوظة في `.work/postgres_answer_submit_red.go` خارج Git لتجميعها مع التنفيذ بعد التحقق من خط الأساس.
+أكمل تشغيل Linux خطوات فحص وحدات Go، والترحيلات والبذور، واختبارات Go وPostgreSQL بنجاح على الالتزام `eb77b4b`.
 
 فرع التقرير المحلي `feat/g0-state`. بدأ التدقيق على `feat/phase2-pwa-foundation` عند `b8ad5d340bd1271873c1bd9c0bf3e07fecf563fb` مع تغييرات محلية تخص P2 وP3.
 إعادة رفع فرع G0 تعذرت لأن Git لم يجد اسم مستخدم HTTPS في جلسة الطرفية.
