@@ -9,7 +9,9 @@
 | G0 | `a216f6a26e370c20d5ed08a636a3604c672d7b14` | [#4](https://github.com/cctw1382-stack/almas-elearning/pull/4) | [43299351418](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299351418) قيد التشغيل، [43299351414](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299351414) قيد التشغيل |
 | P1 | `c607e997c16484bcf6f49eb9e3df6161741d7a78` | [#5](https://github.com/cctw1382-stack/almas-elearning/pull/5) | [43299363094](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299363094) قيد التشغيل، [43299363029](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299363029) قيد التشغيل |
 | P2 | `2d2b33f90a8abde53ceb3a089cc66101c4509620` | [#6](https://github.com/cctw1382-stack/almas-elearning/pull/6) | [43299376500](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299376500) قيد التشغيل، [43299376501](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299376501) قيد التشغيل |
-| P3 | `0b035453abda4e85da0615b5a3f62fd828b51aca` | [#7](https://github.com/cctw1382-stack/almas-elearning/pull/7) | [43299389122](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299389122) في الطابور |
+| P3 | `0b035453abda4e85da0615b5a3f62fd828b51aca` | [#7](https://github.com/cctw1382-stack/almas-elearning/pull/7) | [43299389193](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299389193) قيد التشغيل، [43299389122](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299389122) في الطابور |
+
+رأس PR #7 يحمل أدلة العمل. مجلد `apps/api` ما زال محلياً خارج الملفات المتتبعة، لذلك لا يُستدل من تشغيلات هذا الرأس على اختبار Go أو PostgreSQL.
 
 فرع التقرير المحلي `feat/g0-state`. بدأ التدقيق على `feat/phase2-pwa-foundation` عند `b8ad5d340bd1271873c1bd9c0bf3e07fecf563fb` مع تغييرات محلية تخص P2 وP3.
 إعادة رفع فرع G0 تعذرت لأن Git لم يجد اسم مستخدم HTTPS في جلسة الطرفية.
@@ -54,7 +56,7 @@ Go وPostgreSQL وKeycloak محلياً، وهوية الماس بمكعبين،
 
 ## المهمة التالية الوحيدة
 
-تنفيذ تسليم المحاولة مرة واحدة وتصحيحها من نسخة الامتحان المحفوظة، بدءاً باختبار يفشل.
+تنفيذ `SubmitAttempt` بمعاملة واحدة ومفتاح إعادة ونسخة تصحيح ثابتة، ثم إعادة اختبار PostgreSQL للوصول إلى GREEN.
 
 ## إعادة G0
 
@@ -70,5 +72,7 @@ Go وPostgreSQL وKeycloak محلياً، وهوية الماس بمكعبين،
 نجح `npm run test:web:e2e` على النسخة المبنية من شجرة P2 المحلية، 167 نجاحاً وحالة ترميز واحدة متخطاة، دون إخفاق. الدليل `.work/p2-resume-e2e.log`. تبقى تغييرات P2 الموجودة مسبقاً في شجرة العمل، ويبقى PR المرحلة مفتوحاً كمتطلب.
 
 ## تحقق P3
+
+أضيفت حالة RED محلية إلى `TestPostgresSaveAnswer` تقارن نتيجة التسليم الأولى بإعادته بالمفتاح نفسه ثم بمفتاح جديد. فشلت على PostgreSQL المعزول عند غياب `SubmitAttempt`. الدليل `.work/p3-submit-fixture-red.log`. ما زال يلزم إثبات صحة الدرجة بعد تغيير تعريف الامتحان الحي.
 
 الفرع المحلي `feat/p3-api-acceptance`. نجح فحص تطابق الأنواع و6/6 من اختبارات العقد. نجح `infra/test-postgres-memberships.ps1` مع `-IdentityRuntimeRoot` على قاعدة PostgreSQL المؤقتة وبعد الاستعادة، ونجح PKCE وحفظ الإجابة وإعادة الطلب عبر HTTP برمز Keycloak. الأدلة `.work/p3-resume-contracts.log` و`.work/p3-resume-integration.log`. يغطي التحقق الشجرة المحلية الحالية. تسليم المحاولة والتصحيح وربط ولي الأمر والواجهة باقية.
