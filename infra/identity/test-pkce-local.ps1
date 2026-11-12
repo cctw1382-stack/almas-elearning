@@ -6,8 +6,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $source = Join-Path $RuntimeRoot 'keycloak/keycloak-26.8.1'
-$java = Get-ChildItem (Join-Path $RuntimeRoot 'java') -Directory | Select-Object -First 1
-if (!$java -or !(Test-Path (Join-Path $source 'bin/kc.bat'))) { throw 'Verified local runtime is required.' }
+$java = Get-Command java -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($java) {
+    $javaHome = Split-Path -Parent (Split-Path -Parent $java.Source)
+} else {
+    $javaHome = (Get-ChildItem (Join-Path $RuntimeRoot 'java') -Directory -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+}
+if (!$javaHome -or !(Test-Path (Join-Path $javaHome 'bin/java.exe')) -or !(Test-Path (Join-Path $source 'bin/kc.bat'))) { throw 'Verified local Java and Keycloak runtimes are required.' }
 if (Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue) { throw 'Choose an unused fixture port.' }
 $fixture = Join-Path ([IO.Path]::GetFullPath($TestRoot)) ('pkce-' + [Guid]::NewGuid().ToString('N'))
 if ($fixture -notmatch '^[A-Za-z]:[\\/][A-Za-z0-9_.\\/-]+$') { throw 'Fixture path must use ASCII and no spaces.' }
@@ -37,7 +42,7 @@ $previousJava = $env:JAVA_HOME
 $process = $null
 try {
     $realm | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $realmPath -Encoding utf8
-    $env:JAVA_HOME = $java.FullName
+    $env:JAVA_HOME = $javaHome
     $command = (Join-Path $fixture 'bin/kc.bat') + " start-dev --db=dev-mem --http-host=127.0.0.1 --http-port=$Port --hostname=$hostURL --log-level=INFO --import-realm"
     $process = Start-Process -FilePath $env:ComSpec -ArgumentList @('/d', '/c', $command) -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $fixture 'keycloak.log') -RedirectStandardError (Join-Path $fixture 'keycloak-error.log')
     $ready = $false
