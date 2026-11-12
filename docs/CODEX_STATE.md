@@ -75,8 +75,10 @@ Go وPostgreSQL وKeycloak محلياً، وهوية الماس بمكعبين،
 
 ## تحقق P3
 
-أضيفت حالة RED محلية إلى `TestPostgresSaveAnswer` تقارن نتيجة التسليم الأولى بإعادته بالمفتاح نفسه ثم بمفتاح جديد. فشلت على PostgreSQL المعزول عند غياب `SubmitAttempt`. الدليل `.work/p3-submit-fixture-red.log`. ما زال يلزم إثبات صحة الدرجة بعد تغيير تعريف الامتحان الحي.
+أضيفت حالة RED محلية إلى `TestPostgresSaveAnswer` تقارن نتيجة التسليم الأولى بإعادته بالمفتاح نفسه ثم بمفتاح جديد. فشلت على PostgreSQL المعزول عند غياب `SubmitAttempt`. الدليل `.work/p3-submit-fixture-red.log`.
 
 GREEN: أضيف `SubmitAttempt` والترحيل `0005_exam_submission.sql`. تحفظ معاملة التسليم النتيجة والإيصال معاً، وترفض مراجعة غير مطابقة قبل انتهاء الموعد. نجح اختبار تكرار النتيجة واختبار اختلاف المفتاح الحي عن المفتاح المثبت على القاعدة الأصلية والمستعادة. الدليل `.work/p3-submit-green.log`. المحاولات القديمة التي تفتقد نسخة تصحيح موثوقة تحصل على 409 وتبقى إجاباتها محفوظة.
+
+نجح الترحيل واختبار Go وPostgreSQL على Linux للالتزام المدفوع `fbf692189fc325a325eb2765e1de34da436b02fe`. ما زال قبول P3 جزئياً بانتظار قراءة النتيجة وربط الواجهة وعزل ولي الأمر، ويبقى P4 مفتوحاً. [تشغيل API](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43301275363).
 
 الفرع المحلي `feat/p3-api-acceptance`. نجح فحص تطابق الأنواع و6/6 من اختبارات العقد. نجح `infra/test-postgres-memberships.ps1` مع `-IdentityRuntimeRoot` على قاعدة PostgreSQL المؤقتة وبعد الاستعادة، ونجح PKCE وحفظ الإجابة وإعادة الطلب عبر HTTP برمز Keycloak. الأدلة `.work/p3-resume-contracts.log` و`.work/p3-resume-integration.log`. يغطي التحقق الشجرة المحلية الحالية. تسليم المحاولة والتصحيح وربط ولي الأمر والواجهة باقية.
