@@ -1,5 +1,16 @@
 # CODEX STATE — 2026-11-12
 
+## طلبات المراجعة وتشغيل GitHub Actions
+
+تستهدف الطلبات الأربعة `feat/phase1-complete-ux`. استُخدم موصل GitHub لأن `gh` غير متاح في الطرفية.
+
+| المرحلة | SHA المدفوع | PR | حالة CI بعد فتح الطلب |
+| --- | --- | --- | --- |
+| G0 | `a216f6a26e370c20d5ed08a636a3604c672d7b14` | [#4](https://github.com/cctw1382-stack/almas-elearning/pull/4) | [43299351418](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299351418) قيد التشغيل، [43299351414](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299351414) قيد التشغيل |
+| P1 | `c607e997c16484bcf6f49eb9e3df6161741d7a78` | [#5](https://github.com/cctw1382-stack/almas-elearning/pull/5) | [43299363094](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299363094) قيد التشغيل، [43299363029](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299363029) قيد التشغيل |
+| P2 | `2d2b33f90a8abde53ceb3a089cc66101c4509620` | [#6](https://github.com/cctw1382-stack/almas-elearning/pull/6) | [43299376500](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299376500) قيد التشغيل، [43299376501](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299376501) قيد التشغيل |
+| P3 | `0b035453abda4e85da0615b5a3f62fd828b51aca` | [#7](https://github.com/cctw1382-stack/almas-elearning/pull/7) | [43299389122](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299389122) في الطابور |
+
 فرع التقرير المحلي `feat/g0-state`. بدأ التدقيق على `feat/phase2-pwa-foundation` عند `b8ad5d340bd1271873c1bd9c0bf3e07fecf563fb` مع تغييرات محلية تخص P2 وP3.
 إعادة رفع فرع G0 تعذرت لأن Git لم يجد اسم مستخدم HTTPS في جلسة الطرفية.
 SHA رأس `main` بحسب GitHub هو `dd44d09d399f3884f2d6c5cdd3e8041e5e4b373e`.
