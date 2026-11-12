@@ -1,0 +1,37 @@
+{
+  "realm": "almas-local",
+  "enabled": true,
+  "displayName": "منصة الماس — اختبار محلي",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "sslRequired": "external",
+  "bruteForceProtected": true,
+  "roles": {
+    "realm": [
+      { "name": "student" },
+      { "name": "teacher" },
+      { "name": "guardian" },
+      { "name": "school-admin" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "almas-web-local",
+      "name": "Almas local browser",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://127.0.0.1:4174/auth/callback"],
+      "webOrigins": ["http://127.0.0.1:4174"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://127.0.0.1:4174/"
+      }
+    }
+  ]
+}
