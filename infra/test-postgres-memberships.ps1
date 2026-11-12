@@ -91,6 +91,12 @@ try {
     Assert-NativeExit 'Apply guardian link migration'
     & $psql @pgArgs -X -d postgres -v ON_ERROR_STOP=1 -f $guardianSeed
     Assert-NativeExit 'Seed synthetic guardian links'
+    foreach ($mediaSource in @('migrations/0007_media_access.sql', 'internal/learningapi/testdata/media.sql')) {
+        $mediaFixture = Join-Path $fixture (Split-Path $mediaSource -Leaf)
+        Copy-Item -LiteralPath (Join-Path $api $mediaSource) -Destination $mediaFixture
+        & $psql @pgArgs -X -d postgres -v ON_ERROR_STOP=1 -f $mediaFixture
+        Assert-NativeExit 'Apply media access fixture'
+    }
 
     $dump = Join-Path $fixture 'memberships.dump'
     & (Join-Path $bin 'pg_dump.exe') @pgArgs -Fc -f $dump postgres
@@ -105,7 +111,7 @@ try {
         foreach ($database in @('postgres', 'almas_restore')) {
             $env:ALMAS_TEST_DATABASE_URL = "postgres://almas_app:${appPassword}@127.0.0.1:${Port}/${database}?sslmode=disable"
             Write-Output "Testing membership isolation on fixture database $database"
-            & go test -count=1 -v -run '^TestPostgres(Sessions|StudentExam|AttemptStart|SaveAnswer|Guardian)$' ./...
+            & go test -count=1 -v -run '^(TestMediaLinks|TestPostgres(Sessions|StudentExam|AttemptStart|SaveAnswer|Guardian|Media))$' ./...
             Assert-NativeExit 'Verify PostgreSQL memberships, exams and attempt starts'
         }
         if ($IdentityRuntimeRoot) {

@@ -1,0 +1,130 @@
+package learningapi
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"time"
+
+	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/google/uuid"
+)
+
+var ErrMediaUnavailable = errors.New("media unavailable")
+
+type MediaObject struct {
+	Key, ContentType string
+}
+
+type MediaReader interface {
+	io.ReadSeeker
+	io.Closer
+}
+
+type ResolveMedia func(context.Context, VerifiedIdentity, string, string) (MediaObject, error)
+type OpenMedia func(context.Context, MediaObject) (MediaReader, error)
+
+// NewMediaHandler issues relative playback URLs for the authenticated learner.
+// The signing key is supplied by the host, and media access is rechecked on every request.
+func NewMediaHandler(key []byte, ttl time.Duration, now func() time.Time, authenticate openapi3filter.AuthenticationFunc, resolve ResolveMedia, open OpenMedia) (http.Handler, error) {
+	if len(key) < 32 || ttl < time.Second || ttl > 15*time.Minute || now == nil || authenticate == nil || resolve == nil || open == nil {
+		return nil, errors.New("invalid media handler configuration")
+	}
+	signingKey := append([]byte(nil), key...)
+	signature := func(identity VerifiedIdentity, school, asset string, expires string) []byte {
+		payload, _ := json.Marshal([6]string{"almas-media-v1", identity.Issuer, identity.Subject, school, asset, expires})
+		mac := hmac.New(sha256.New, signingKey)
+		_, _ = mac.Write(payload)
+		return mac.Sum(nil)
+	}
+	protect := func(handler func(http.ResponseWriter, *http.Request, VerifiedIdentity, string, string)) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "private, no-store")
+			w.Header().Set("Referrer-Policy", "no-referrer")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			school, asset := r.PathValue("school"), r.PathValue("asset")
+			if r.URL.EscapedPath() != r.URL.Path || !validMediaID(school) || !validMediaID(asset) {
+				writeProblem(w, http.StatusNotFound, NotFound, "الفيديو غير متاح.")
+				return
+			}
+			input := &openapi3filter.AuthenticationInput{
+				RequestValidationInput: &openapi3filter.RequestValidationInput{Request: r},
+				SecuritySchemeName:     "bearerAuth",
+			}
+			err := authenticate(r.Context(), input)
+			identity, ok := IdentityFromContext(r.Context())
+			if err != nil || !ok {
+				w.Header().Set("WWW-Authenticate", "Bearer")
+				writeProblem(w, http.StatusUnauthorized, Unauthenticated, "تعذر التحقق من الهوية.")
+				return
+			}
+			handler(w, r, identity, school, asset)
+		}
+	}
+	lookup := func(w http.ResponseWriter, r *http.Request, identity VerifiedIdentity, school, asset string) (MediaObject, bool) {
+		object, err := resolve(r.Context(), identity, school, asset)
+		switch {
+		case errors.Is(err, ErrMediaUnavailable):
+			writeProblem(w, http.StatusNotFound, NotFound, "الفيديو غير متاح.")
+		case err != nil:
+			writeProblem(w, http.StatusInternalServerError, Unavailable, "تعذر إكمال الطلب.")
+		}
+		return object, err == nil
+	}
+	const prefix = "/api/v1/schools/"
+	const pattern = prefix + "{school}/media/{asset}"
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST "+pattern+"/link", protect(func(w http.ResponseWriter, r *http.Request, identity VerifiedIdentity, school, asset string) {
+		if _, ok := lookup(w, r, identity, school, asset); !ok {
+			return
+		}
+		expires := strconv.FormatInt(now().Add(ttl).UnixMilli(), 10)
+		params := url.Values{"exp": {expires}, "sig": {base64.RawURLEncoding.EncodeToString(signature(identity, school, asset, expires))}}
+		location := prefix + school + "/media/" + asset + "/play?" + params.Encode()
+		w.Header().Set("Location", location)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(struct {
+			URL string `json:"url"`
+		}{URL: location})
+	}))
+	mux.HandleFunc("GET "+pattern+"/play", protect(func(w http.ResponseWriter, r *http.Request, identity VerifiedIdentity, school, asset string) {
+		query, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil || len(query) != 2 || len(query["exp"]) != 1 || len(query["sig"]) != 1 {
+			writeProblem(w, http.StatusNotFound, NotFound, "الفيديو غير متاح.")
+			return
+		}
+		exp := query.Get("exp")
+		expires, expErr := strconv.ParseInt(exp, 10, 64)
+		got, sigErr := base64.RawURLEncoding.Strict().DecodeString(query.Get("sig"))
+		if expErr != nil || sigErr != nil || expires <= now().UnixMilli() || !hmac.Equal(got, signature(identity, school, asset, exp)) {
+			writeProblem(w, http.StatusNotFound, NotFound, "الفيديو غير متاح.")
+			return
+		}
+		object, ok := lookup(w, r, identity, school, asset)
+		if !ok {
+			return
+		}
+		reader, err := open(r.Context(), object)
+		if err != nil {
+			writeProblem(w, http.StatusServiceUnavailable, Unavailable, "تعذر فتح الفيديو.")
+			return
+		}
+		defer reader.Close()
+		w.Header().Set("Content-Type", object.ContentType)
+		http.ServeContent(w, r, "", time.Time{}, reader)
+	}))
+	return mux, nil
+}
+
+func validMediaID(value string) bool {
+	id, err := uuid.Parse(value)
+	return err == nil && id.String() == value
+}
