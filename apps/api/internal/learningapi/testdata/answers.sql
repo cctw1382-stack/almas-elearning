@@ -15,6 +15,8 @@ WHERE exam_id = '00000000-0000-4000-8000-000000000047'
   AND id = '00000000-0000-4000-8000-000000000052';
 
 -- Simulate the exam author changing the correct option after attempt 48 began.
+UPDATE almas.exam_questions SET question_text = 'Edited live question'
+WHERE exam_id = '00000000-0000-4000-8000-000000000048';
 UPDATE almas.exam_attempts SET grading_key =
     '{"00000000-0000-4000-8000-000000000051":"00000000-0000-4000-8000-000000000052"}'
 WHERE exam_id = '00000000-0000-4000-8000-000000000048';

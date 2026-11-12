@@ -22,25 +22,30 @@ $examMigration = Join-Path $fixture '0002_student_exam_read.sql'
 $attemptMigration = Join-Path $fixture '0003_exam_attempt_start.sql'
 $answerMigration = Join-Path $fixture '0004_exam_answers.sql'
 $submissionMigration = Join-Path $fixture '0005_exam_submission.sql'
+$guardianMigration = Join-Path $fixture '0006_guardian_links.sql'
 $seed = Join-Path $fixture 'memberships.sql'
 $examSeed = Join-Path $fixture 'exams.sql'
 $attemptSeed = Join-Path $fixture 'attempts.sql'
 $answerSeed = Join-Path $fixture 'answers.sql'
+$guardianSeed = Join-Path $fixture 'guardians.sql'
 Copy-Item -LiteralPath (Join-Path $api 'migrations/0001_identity_membership.sql') -Destination $migration
 Copy-Item -LiteralPath (Join-Path $api 'migrations/0002_student_exam_read.sql') -Destination $examMigration
 Copy-Item -LiteralPath (Join-Path $api 'migrations/0003_exam_attempt_start.sql') -Destination $attemptMigration
 Copy-Item -LiteralPath (Join-Path $api 'migrations/0004_exam_answers.sql') -Destination $answerMigration
 Copy-Item -LiteralPath (Join-Path $api 'migrations/0005_exam_submission.sql') -Destination $submissionMigration
+Copy-Item -LiteralPath (Join-Path $api 'migrations/0006_guardian_links.sql') -Destination $guardianMigration
 Copy-Item -LiteralPath (Join-Path $api 'internal/learningapi/testdata/memberships.sql') -Destination $seed
 Copy-Item -LiteralPath (Join-Path $api 'internal/learningapi/testdata/exams.sql') -Destination $examSeed
 Copy-Item -LiteralPath (Join-Path $api 'internal/learningapi/testdata/attempts.sql') -Destination $attemptSeed
 Copy-Item -LiteralPath (Join-Path $api 'internal/learningapi/testdata/answers.sql') -Destination $answerSeed
+Copy-Item -LiteralPath (Join-Path $api 'internal/learningapi/testdata/guardians.sql') -Destination $guardianSeed
 $data = Join-Path $fixture 'data'
 $passwordFile = Join-Path $fixture 'init-password'
 $adminPassword = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(24))
 $appPassword = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(24))
 $previousPassword = $env:PGPASSWORD
 $previousTestURL = $env:ALMAS_TEST_DATABASE_URL
+$previousBrowserURL = $env:ALMAS_TEST_BROWSER_DATABASE_URL
 $pgArgs = @('-h', '127.0.0.1', '-p', $Port, '-U', 'almas_fixture_owner', '-w')
 
 function Assert-NativeExit([string]$operation) {
@@ -82,6 +87,10 @@ try {
     Assert-NativeExit 'Apply exam submission migration over existing attempts'
     & $psql @pgArgs -X -d postgres -v ON_ERROR_STOP=1 -f $answerSeed
     Assert-NativeExit 'Seed previously accepted answer for timeout test'
+    & $psql @pgArgs -X -d postgres -v ON_ERROR_STOP=1 -f $guardianMigration
+    Assert-NativeExit 'Apply guardian link migration'
+    & $psql @pgArgs -X -d postgres -v ON_ERROR_STOP=1 -f $guardianSeed
+    Assert-NativeExit 'Seed synthetic guardian links'
 
     $dump = Join-Path $fixture 'memberships.dump'
     & (Join-Path $bin 'pg_dump.exe') @pgArgs -Fc -f $dump postgres
@@ -96,11 +105,12 @@ try {
         foreach ($database in @('postgres', 'almas_restore')) {
             $env:ALMAS_TEST_DATABASE_URL = "postgres://almas_app:${appPassword}@127.0.0.1:${Port}/${database}?sslmode=disable"
             Write-Output "Testing membership isolation on fixture database $database"
-            & go test -count=1 -v -run '^TestPostgres(Sessions|StudentExam|AttemptStart|SaveAnswer)$' ./...
+            & go test -count=1 -v -run '^TestPostgres(Sessions|StudentExam|AttemptStart|SaveAnswer|Guardian)$' ./...
             Assert-NativeExit 'Verify PostgreSQL memberships, exams and attempt starts'
         }
         if ($IdentityRuntimeRoot) {
             $env:ALMAS_TEST_DATABASE_URL = "postgres://almas_app:${appPassword}@127.0.0.1:${Port}/postgres?sslmode=disable"
+            $env:ALMAS_TEST_BROWSER_DATABASE_URL = "postgres://almas_app:${appPassword}@127.0.0.1:${Port}/almas_restore?sslmode=disable"
             & (Join-Path $PSScriptRoot 'identity/test-pkce-local.ps1') -RuntimeRoot $IdentityRuntimeRoot -TestRoot $fixture -Port $IdentityPort
         }
     } finally {
@@ -113,4 +123,5 @@ try {
     if (Test-Path -LiteralPath $passwordFile) { Remove-Item -LiteralPath $passwordFile }
     $env:PGPASSWORD = $previousPassword
     $env:ALMAS_TEST_DATABASE_URL = $previousTestURL
+    $env:ALMAS_TEST_BROWSER_DATABASE_URL = $previousBrowserURL
 }

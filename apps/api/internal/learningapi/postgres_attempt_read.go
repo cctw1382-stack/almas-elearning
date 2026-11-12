@@ -63,13 +63,17 @@ func (s *PostgresAttempts) GetAttempt(ctx context.Context, request GetAttemptReq
 		}
 		err = response.FromSubmittedAttempt(result)
 	default:
+		var frozen StudentExam
+		if err := json.Unmarshal(snapshot, &frozen); err != nil {
+			return nil, err
+		}
 		answers, err := loadAttemptAnswers(ctx, tx, scope)
 		if err != nil {
 			return nil, err
 		}
 		if err := response.FromActiveAttempt(ActiveAttempt{Id: result.Id, ExamId: result.ExamId,
 			Status: Active, Deadline: deadline.UnixMilli(), ServerTime: now.UnixMilli(),
-			Revision: result.Revision, Answers: answers}); err != nil {
+			Revision: result.Revision, Answers: answers, Exam: &frozen}); err != nil {
 			return nil, err
 		}
 	}

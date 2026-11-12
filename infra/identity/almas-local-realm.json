@@ -28,6 +28,18 @@
       "serviceAccountsEnabled": false,
       "redirectUris": ["http://127.0.0.1:4174/auth/callback"],
       "webOrigins": ["http://127.0.0.1:4174"],
+      "protocolMappers": [
+        {
+          "name": "Almas API access token audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "almas-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "http://127.0.0.1:4174/"

@@ -1,5 +1,5 @@
 // Generated from contracts/learning.openapi.json. Do not edit.
-// Contract SHA256: 269d787bb2574f02ca3543120b9d7804822bdd5c6a9a367425cfba82a13d79bd
+// Contract SHA256: 23841a07b6bb212c6742194dd12cb81b420192c64c3d752f84d578d5c82cb0d2
 export interface paths {
     "/schools/{schoolId}/attempts/{attemptId}": {
         parameters: {
@@ -102,6 +102,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/schools/{schoolId}/guardian/children/{childId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                childId: components["schemas"]["Id"];
+                schoolId: components["parameters"]["School"];
+            };
+            cookie?: never;
+        };
+        /** @description Read a linked child using the verified guardian identity and school membership. */
+        get: operations["getGuardianChild"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session": {
         parameters: {
             query?: never;
@@ -126,6 +146,7 @@ export interface components {
         ActiveAttempt: {
             answers: components["schemas"]["SavedAnswer"][];
             deadline: components["schemas"]["Time"];
+            exam?: components["schemas"]["StudentExam"];
             examId: components["schemas"]["Id"];
             id: components["schemas"]["Id"];
             revision: components["schemas"]["Revision"];
@@ -142,6 +163,10 @@ export interface components {
             code: "invalid_request" | "unauthenticated" | "forbidden" | "not_found" | "revision_conflict" | "attempt_closed" | "idempotency_conflict" | "rate_limited" | "unavailable";
             message: string;
             requestId: components["schemas"]["Id"];
+        };
+        GuardianChild: {
+            childId: components["schemas"]["Id"];
+            schoolId: components["schemas"]["Id"];
         };
         Id: string;
         Membership: {
@@ -386,6 +411,33 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getGuardianChild: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                childId: components["schemas"]["Id"];
+                schoolId: components["parameters"]["School"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Linked child */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuardianChild"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

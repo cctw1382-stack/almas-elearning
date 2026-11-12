@@ -247,6 +247,16 @@ func TestPostgresSaveAnswer(t *testing.T) {
 		if err != nil || !ok {
 			t.Fatalf("resume grading fixture: %T %v", response, err)
 		}
+		read, err := store.GetAttempt(ctx, GetAttemptRequestObject{SchoolId: school, AttemptId: active.Id})
+		body, ok := read.(GetAttempt200JSONResponse)
+		if err != nil || !ok {
+			t.Fatalf("read frozen exam: %T %v", read, err)
+		}
+		current, err := body.AsActiveAttempt()
+		if err != nil || current.Exam == nil || len(current.Exam.Questions) != 1 ||
+			current.Exam.Questions[0].Text != "Synthetic attempt question" {
+			t.Fatal("attempt did not preserve the original question text")
+		}
 		answer := request(firstOption, "00000000-0000-4000-8000-000000000412", 0)
 		answer.AttemptId = active.Id
 		saved, err := store.SaveAnswer(ctx, answer)

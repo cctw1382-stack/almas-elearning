@@ -49,14 +49,19 @@ test('connected student resumes answers after refresh and sees the ' + reason + 
     const base = { id: attempt, examId: exam, revision, answers, deadline: 2000, serverTime: expired ? 2000 : 1000 };
     return route.fulfill({ json: expired || submitted
       ? { ...base, status: 'submitted', reason, submittedAt: 2000, score: 1, total: 1 }
-      : { ...base, status: 'active' } });
+      : { ...base, status: 'active', exam: {
+        id: exam, title: 'اختبار متصل', durationSeconds: 60,
+        questions: [{ id: question, text: 'السؤال المحفوظ', options: [{ id: option, text: 'الخيار الأول' }] }],
+      } } });
   });
   await page.goto('/student/exam?schoolId=' + school + '&examId=' + exam);
   await page.getByRole('button', { name: 'دخول الطالب' }).click({ timeout: 4000 });
   await page.getByRole('button', { name: 'بدء المحاولة' }).click();
+  await expect(page.getByText('السؤال المحفوظ')).toBeVisible();
   await page.getByRole('radio', { name: 'الخيار الأول' }).check();
   await expect(page.getByRole('status')).toHaveText('حُفظت الإجابة');
   await page.reload();
+  await expect(page.getByText('السؤال المحفوظ')).toBeVisible();
   await expect(page.getByRole('radio', { name: 'الخيار الأول' })).toBeChecked();
   expect(reads).toBeGreaterThan(0);
   if (reason === 'manual') await page.getByRole('button', { name: 'تسليم المحاولة' }).click();

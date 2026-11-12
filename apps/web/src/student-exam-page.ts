@@ -138,7 +138,10 @@ export async function mountStudentExam(issuer: URL, clientId: string, apiBase: U
     if (id) {
       const saved = await provider.get(id);
       if (saved.examId !== examId) throw new Error('المحاولة لا تخص هذا الاختبار.');
-      if (saved.status === 'active') exam = await provider.exam(examId);
+      if (saved.status === 'active') {
+        if (!saved.exam) throw new Error('نسخة أسئلة المحاولة غير متاحة.');
+        exam = saved.exam;
+      }
       if (exam) title.textContent = exam.title;
       render(saved);
       return;
@@ -149,7 +152,13 @@ export async function mountStudentExam(issuer: URL, clientId: string, apiBase: U
       const started = await provider.start(examId, startKey);
       url.searchParams.set('attemptId', started.id);
       history.replaceState(null, '', url);
-      render(started);
+      const saved = await provider.get(started.id);
+      if (saved.status === 'active') {
+        if (!saved.exam) throw new Error('نسخة أسئلة المحاولة غير متاحة.');
+        exam = saved.exam;
+        title.textContent = exam.title;
+      }
+      render(saved);
     });
   });
 }
