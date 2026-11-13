@@ -4,12 +4,41 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func NewPostgresMediaIngestHandler(pool *pgxpool.Pool, limit int64, authenticate openapi3filter.AuthenticationFunc, convert MediaConverter, store StoreUpload) http.Handler {
+	return NewPostgresMediaUploadHandler(pool, limit, authenticate, IngestHLS(convert, store,
+		func(ctx context.Context, key string, object MediaObject) error {
+			parts := strings.Split(key, "/")
+			actor, ok := IdentityFromContext(ctx)
+			if !ok || len(parts) != 3 {
+				return ErrMediaUnavailable
+			}
+			tx, err := beginIdentityTx(ctx, pool, actor, pgx.ReadWrite)
+			if err != nil {
+				return err
+			}
+			defer tx.Rollback(ctx)
+			result, err := tx.Exec(ctx, `
+				INSERT INTO almas.media_assets (school_id, lesson_id, id, object_key, content_type)
+				SELECT school_id, lesson_id, $3::uuid, $4, $5 FROM almas.lesson_owners
+				WHERE school_id = $1::uuid AND lesson_id = $2::uuid`,
+				parts[0], parts[1], strings.TrimSuffix(parts[2], ".mp4"), object.Key, object.ContentType)
+			if err != nil {
+				return err
+			}
+			if result.RowsAffected() != 1 {
+				return ErrMediaUnavailable
+			}
+			return tx.Commit(ctx)
+		}))
+}
 
 func NewPostgresMediaUploadHandler(pool *pgxpool.Pool, limit int64, authenticate openapi3filter.AuthenticationFunc, store StoreUpload) http.Handler {
 	return NewMediaUploadHandler(limit, authenticate, func(ctx context.Context, actor VerifiedIdentity, school, lesson string) error {

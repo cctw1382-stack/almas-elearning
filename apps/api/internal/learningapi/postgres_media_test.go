@@ -3,11 +3,14 @@ package learningapi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -79,11 +82,17 @@ func TestPostgresMedia(t *testing.T) {
 		{"teacher from another school", VerifiedIdentity{Issuer: "https://issuer-b.example.invalid", Subject: "foreign-media-teacher"}, http.StatusNotFound},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			handler := NewPostgresMediaUploadHandler(pool, int64(len(video)),
+			handler := NewPostgresMediaIngestHandler(pool, int64(len(video)),
 				func(_ context.Context, input *openapi3filter.AuthenticationInput) error {
 					request := input.RequestValidationInput.Request
 					*request = *request.WithContext(context.WithValue(request.Context(), identityContextKey{}, tc.actor))
 					return nil
+				},
+				func(_ context.Context, _, dir string) error {
+					if err := os.WriteFile(filepath.Join(dir, "segment-0.ts"), []byte("fixture segment"), 0600); err != nil {
+						return err
+					}
+					return os.WriteFile(filepath.Join(dir, "index.m3u8"), []byte("#EXTM3U\n#EXTINF:1,\nsegment-0.ts\n#EXT-X-ENDLIST\n"), 0600)
 				},
 				func(_ context.Context, _ string, source io.Reader) error {
 					writes++
@@ -97,9 +106,23 @@ func TestPostgresMedia(t *testing.T) {
 			if response.Code != tc.status {
 				t.Fatalf("upload status %d, expected %d", response.Code, tc.status)
 			}
+			if tc.status == http.StatusCreated {
+				var created struct {
+					UploadID string `json:"uploadId"`
+				}
+				if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+					t.Fatal(err)
+				}
+				id := strings.TrimSuffix(filepath.Base(created.UploadID), ".mp4")
+				object, err := resolvePostgresMedia(ctx, pool, second, school, id)
+				if err != nil || object.Key != created.UploadID+"/index.m3u8" ||
+					object.ContentType != "application/vnd.apple.mpegurl" {
+					t.Fatalf("published rendition unavailable to enrolled student: %v", err)
+				}
+			}
 		})
 	}
-	if writes != 1 {
-		t.Fatalf("expected only one authorized storage write, got %d", writes)
+	if writes != 2 {
+		t.Fatalf("expected only the authorized segment and playlist writes, got %d", writes)
 	}
 }

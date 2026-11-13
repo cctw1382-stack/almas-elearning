@@ -35,6 +35,7 @@ func NewMediaUploadHandler(limit int64, authenticate openapi3filter.Authenticati
 			writeProblem(w, http.StatusUnauthorized, Unauthenticated, "تعذر التحقق من الهوية.")
 			return
 		}
+		r = r.WithContext(context.WithValue(r.Context(), identityContextKey{}, actor))
 		key, err := UploadMP4(r.Context(), actor, r.PathValue("school"), r.PathValue("lesson"),
 			r.Header.Get("Content-Type"), limit, r.Body, authorize, store)
 		switch {

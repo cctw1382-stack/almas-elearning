@@ -91,7 +91,7 @@ try {
     Assert-NativeExit 'Apply guardian link migration'
     & $psql @pgArgs -X -d postgres -v ON_ERROR_STOP=1 -f $guardianSeed
     Assert-NativeExit 'Seed synthetic guardian links'
-    foreach ($mediaSource in @('migrations/0007_media_access.sql', 'migrations/0008_media_progress.sql', 'migrations/0009_lesson_owners.sql', 'internal/learningapi/testdata/media.sql')) {
+    foreach ($mediaSource in @('migrations/0007_media_access.sql', 'migrations/0008_media_progress.sql', 'migrations/0009_lesson_owners.sql', 'migrations/0010_media_ingest.sql', 'internal/learningapi/testdata/media.sql')) {
         $mediaFixture = Join-Path $fixture (Split-Path $mediaSource -Leaf)
         Copy-Item -LiteralPath (Join-Path $api $mediaSource) -Destination $mediaFixture
         & $psql @pgArgs -X -d postgres -v ON_ERROR_STOP=1 -f $mediaFixture

@@ -48,6 +48,7 @@ jobs:
           for sql in migrations/000[1-3]_*.sql "$fixture"/{memberships,exams,attempts}.sql migrations/000[4-9]_*.sql "$fixture"/{answers,guardians,media}.sql; do
             docker exec -i "$POSTGRES_CONTAINER" psql -X -U postgres -v ON_ERROR_STOP=1 < "$sql"
           done
+          docker exec -i "$POSTGRES_CONTAINER" psql -X -U postgres -v ON_ERROR_STOP=1 < migrations/0010_media_ingest.sql
       - name: Run Go and PostgreSQL integration tests
         env:
           ALMAS_TEST_DATABASE_URL: postgresql://almas_app:ci_fixture_app_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres?sslmode=disable
