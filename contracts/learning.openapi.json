@@ -1,0 +1,91 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Almas learning API draft",
+    "version": "0.1.0",
+    "description": "Phase 3 contract-first draft, not an implemented service. School membership, enrollment, ownership and role authorization MUST be enforced by Go on every request. Student payloads exclude grading keys. All private responses require Cache-Control: no-store."
+  },
+  "servers": [{"url": "http://127.0.0.1:8080/api/v1", "description": "Local development only; production requires HTTPS"}],
+  "security": [{"bearerAuth": []}],
+  "paths": {
+    "/schools/{schoolId}/guardian/children/{childId}": {"parameters":[{"$ref":"#/components/parameters/School"},{"name":"childId","in":"path","required":true,"schema":{"$ref":"#/components/schemas/Id"}}],"get":{"operationId":"getGuardianChild","description":"Read a linked child using the verified guardian identity and school membership.","responses":{"200":{"description":"Linked child","content":{"application/json":{"schema":{"$ref":"#/components/schemas/GuardianChild"}}}},"401":{"$ref":"#/components/responses/Error"},"403":{"$ref":"#/components/responses/Error"},"404":{"$ref":"#/components/responses/Error"},"default":{"$ref":"#/components/responses/Error"}}}},
+    "/session": {
+      "get": {"operationId": "getSession", "description": "Resolve verified OIDC subject to application user and current database memberships. Never trust client-selected roles or stale token school claims.", "responses": {
+        "200": {"description": "Verified identity and memberships", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Session"}}}},
+        "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "404": {"$ref": "#/components/responses/Error"}, "default": {"$ref": "#/components/responses/Error"}
+      }}
+    },
+    "/schools/{schoolId}/exams/{examId}": {
+      "parameters": [{"$ref": "#/components/parameters/School"}, {"$ref": "#/components/parameters/Exam"}],
+      "get": {"operationId": "getStudentExam", "description": "Student must be enrolled and assigned this published exam. Cross-school or unowned resources return 404. Never serialize internal question or grading records directly.", "responses": {
+        "200": {"description": "Public questions without grading keys", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/StudentExam"}}}},
+        "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "404": {"$ref": "#/components/responses/Error"}, "default": {"$ref": "#/components/responses/Error"}
+      }}
+    },
+    "/schools/{schoolId}/exams/{examId}/attempts": {
+      "parameters": [{"$ref": "#/components/parameters/School"}, {"$ref": "#/components/parameters/Exam"}],
+      "post": {"operationId": "startAttempt", "parameters": [{"$ref": "#/components/parameters/Idempotency"}], "description": "Student only; ownership is derived from identity. Atomically enforce assignment, exam window and retake policy. Server clock sets deadline. Existing active attempt is returned rather than replaced. No client timestamps or retake override accepted.", "responses": {
+        "201": {"description": "Created attempt", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ActiveAttempt"}}}},
+        "200": {"description": "Existing active attempt or idempotent replay", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ActiveAttempt"}}}},
+        "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "404": {"$ref": "#/components/responses/Error"}, "409": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "default": {"$ref": "#/components/responses/Error"}
+      }}
+    },
+    "/schools/{schoolId}/attempts/{attemptId}": {
+      "parameters": [{"$ref": "#/components/parameters/School"}, {"$ref": "#/components/parameters/Attempt"}],
+      "get": {"operationId": "getAttempt", "description": "Student-owned attempt only. If expired, server finalizes exactly once before returning submitted state. All timestamps are integer Unix milliseconds in UTC; serverTime is authoritative.", "responses": {
+        "200": {"description": "Current server state", "content": {"application/json": {"schema": {"oneOf": [{"$ref": "#/components/schemas/ActiveAttempt"}, {"$ref": "#/components/schemas/SubmittedAttempt"}]}}}},
+        "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "404": {"$ref": "#/components/responses/Error"}, "default": {"$ref": "#/components/responses/Error"}
+      }}
+    },
+    "/schools/{schoolId}/attempts/{attemptId}/answers/{questionId}": {
+      "parameters": [{"$ref": "#/components/parameters/School"}, {"$ref": "#/components/parameters/Attempt"}, {"$ref": "#/components/parameters/Question"}],
+      "put": {"operationId": "saveAnswer", "parameters": [{"$ref": "#/components/parameters/Idempotency"}],
+        "description": "Student-owned active attempt only. Check question belongs to frozen attempt and option belongs to question. Atomically compare expectedRevision, save and increment revision. Reject late writes, finalize timeout and return 409; accepted answers remain intact. Replay lookup precedes revision comparison, within current authorization.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AnswerWrite"}}}},
+        "responses": {
+          "200": {"description": "Authoritative updated state", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ActiveAttempt"}}}},
+          "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "404": {"$ref": "#/components/responses/Error"}, "409": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/schools/{schoolId}/attempts/{attemptId}/submit": {
+      "parameters": [{"$ref": "#/components/parameters/School"}, {"$ref": "#/components/parameters/Attempt"}],
+      "post": {"operationId": "submitAttempt", "parameters": [{"$ref": "#/components/parameters/Idempotency"}],
+        "description": "Student-owned attempt only. Grade saved answers atomically using server-only grading data and frozen exam version. Compare expectedRevision for active attempt. At or after deadline reason is timeout. Already submitted returns immutable result. Request cannot carry grades or bulk replacement answers.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SubmitWrite"}}}},
+        "responses": {
+          "200": {"description": "Immutable result without answer keys", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SubmittedAttempt"}}}},
+          "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "404": {"$ref": "#/components/responses/Error"}, "409": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "default": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT", "description": "Keycloak authorization-code + PKCE S256. Go MUST verify signature, algorithm allowlist, exact issuer, API audience and expiry. No direct password grant. No persistent browser token storage."}},
+    "parameters": {
+      "School": {"name": "schoolId", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/Id"}},
+      "Exam": {"name": "examId", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/Id"}},
+      "Attempt": {"name": "attemptId", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/Id"}},
+      "Question": {"name": "questionId", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/Id"}},
+      "Idempotency": {"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"$ref": "#/components/schemas/Id"}, "description": "Unique write UUID. Bind key to school, user, operation, resource and normalized payload hash. Persist response atomically with write for at least 24h; same key and payload replays stored status/body, changed payload returns 409. Authorization is rechecked on every replay. Expired keys do not bypass attempt state or deadline checks."}
+    },
+    "responses": {"Error": {"description": "Structured error; no internal details or cross-school existence disclosure. 401 invalid identity, 403 forbidden role, 404 absent or unowned, 409 revision/state/idempotency conflict.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+    "schemas": {
+      "GuardianChild": {"type":"object","additionalProperties":false,"required":["schoolId","childId"],"properties":{"schoolId":{"$ref":"#/components/schemas/Id"},"childId":{"$ref":"#/components/schemas/Id"}}},
+      "Id": {"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"},
+      "Time": {"type": "integer", "format": "int64", "minimum": 0, "maximum": 8640000000000000},
+      "Revision": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+      "Option": {"type": "object", "additionalProperties": false, "required": ["id", "text"], "properties": {"id": {"$ref": "#/components/schemas/Id"}, "text": {"type": "string", "minLength": 1, "maxLength": 500}}},
+      "StudentQuestion": {"type": "object", "additionalProperties": false, "required": ["id", "text", "options"], "properties": {"id": {"$ref": "#/components/schemas/Id"}, "text": {"type": "string", "minLength": 1, "maxLength": 2000}, "options": {"type": "array", "minItems": 2, "maxItems": 10, "items": {"$ref": "#/components/schemas/Option"}}}},
+      "StudentExam": {"type": "object", "additionalProperties": false, "required": ["id", "title", "durationSeconds", "questions"], "properties": {"id": {"$ref": "#/components/schemas/Id"}, "title": {"type": "string", "minLength": 1, "maxLength": 200}, "durationSeconds": {"type": "integer", "minimum": 1, "maximum": 21600}, "questions": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"$ref": "#/components/schemas/StudentQuestion"}}}},
+      "AnswerWrite": {"type": "object", "additionalProperties": false, "required": ["optionId", "expectedRevision"], "properties": {"optionId": {"$ref": "#/components/schemas/Id"}, "expectedRevision": {"$ref": "#/components/schemas/Revision"}}},
+      "SubmitWrite": {"type": "object", "additionalProperties": false, "required": ["expectedRevision"], "properties": {"expectedRevision": {"$ref": "#/components/schemas/Revision"}}},
+      "SavedAnswer": {"type": "object", "additionalProperties": false, "required": ["questionId", "optionId"], "properties": {"questionId": {"$ref": "#/components/schemas/Id"}, "optionId": {"$ref": "#/components/schemas/Id"}}},
+      "ActiveAttempt": {"type":"object","additionalProperties":false,"required":["id","examId","status","deadline","serverTime","revision","answers"],"properties":{"id":{"$ref":"#/components/schemas/Id"},"examId":{"$ref":"#/components/schemas/Id"},"status":{"const":"active","type":"string"},"deadline":{"$ref":"#/components/schemas/Time"},"serverTime":{"$ref":"#/components/schemas/Time"},"revision":{"$ref":"#/components/schemas/Revision"},"answers":{"type":"array","maxItems":100,"items":{"$ref":"#/components/schemas/SavedAnswer"}},"exam":{"$ref":"#/components/schemas/StudentExam"}}},
+      "SubmittedAttempt": {"type": "object", "additionalProperties": false, "required": ["id", "examId", "status", "deadline", "serverTime", "revision", "answers", "submittedAt", "reason", "score", "total"], "properties": {"id": {"$ref": "#/components/schemas/Id"}, "examId": {"$ref": "#/components/schemas/Id"}, "status": {"const": "submitted", "type": "string"}, "deadline": {"$ref": "#/components/schemas/Time"}, "serverTime": {"$ref": "#/components/schemas/Time"}, "revision": {"$ref": "#/components/schemas/Revision"}, "answers": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/SavedAnswer"}}, "submittedAt": {"$ref": "#/components/schemas/Time"}, "reason": {"type": "string", "enum": ["manual", "timeout"]}, "score": {"type": "integer", "minimum": 0, "maximum": 100}, "total": {"type": "integer", "minimum": 1, "maximum": 100}}},
+      "Membership": {"type": "object", "additionalProperties": false, "required": ["schoolId", "roles"], "properties": {"schoolId": {"$ref": "#/components/schemas/Id"}, "roles": {"type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true, "items": {"type": "string", "enum": ["student", "teacher", "guardian", "school-admin"]}}}},
+      "Session": {"type": "object", "additionalProperties": false, "required": ["userId", "memberships", "serverTime"], "properties": {"userId": {"$ref": "#/components/schemas/Id"}, "memberships": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/Membership"}}, "serverTime": {"$ref": "#/components/schemas/Time"}}},
+      "Error": {"type": "object", "additionalProperties": false, "required": ["code", "message", "requestId"], "properties": {"code": {"type": "string", "enum": ["invalid_request", "unauthenticated", "forbidden", "not_found", "revision_conflict", "attempt_closed", "idempotency_conflict", "rate_limited", "unavailable"]}, "message": {"type": "string", "maxLength": 300}, "requestId": {"$ref": "#/components/schemas/Id"}}}
+    }
+  }
+}

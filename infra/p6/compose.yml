@@ -1,0 +1,32 @@
+x-app: &app
+  build:
+    context: ../../apps/api
+    dockerfile: ../../infra/p6/Dockerfile
+  environment: &app-env
+    ALMAS_DATABASE_URL: ${ALMAS_DATABASE_URL:?provide a restricted fixture DSN}
+    ALMAS_ISSUER: ${ALMAS_ISSUER:?provide an HTTPS test issuer reachable from the containers}
+    ALMAS_SERVICE: api
+  healthcheck:
+    test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/ready']
+    interval: 5s
+    timeout: 2s
+    retries: 3
+
+services:
+  api-a: *app
+  api-b: *app
+  media:
+    <<: *app
+    environment:
+      <<: *app-env
+      ALMAS_SERVICE: media
+      ALMAS_MEDIA_ROOT: /media
+      ALMAS_MEDIA_SIGNING_KEY: ${ALMAS_MEDIA_SIGNING_KEY:?generate a temporary local key}
+    volumes:
+      - ${ALMAS_MEDIA_FIXTURE_DIR:?provide a directory of synthetic media}:/media:ro
+  proxy:
+    image: nginx:1.28-alpine
+    ports:
+      - '127.0.0.1:8090:80'
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro

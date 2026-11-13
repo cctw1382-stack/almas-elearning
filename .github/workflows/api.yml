@@ -1,0 +1,56 @@
+name: Go API and PostgreSQL checks
+on:
+  pull_request:
+  push:
+    branches: ['feat/p3-api-acceptance']
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: ci_fixture_owner_only
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - name: Verify Go modules and source
+        run: |
+          go mod verify
+          go vet ./...
+      - name: Apply migrations and seed synthetic data
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          fixture=internal/learningapi/testdata
+          docker exec -i "$POSTGRES_CONTAINER" psql -X -U postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE almas_app LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD 'ci_fixture_app_only';
+          SQL
+          for sql in migrations/000[1-3]_*.sql "$fixture"/{memberships,exams,attempts}.sql migrations/000[4-9]_*.sql "$fixture"/{answers,guardians,media}.sql; do
+            docker exec -i "$POSTGRES_CONTAINER" psql -X -U postgres -v ON_ERROR_STOP=1 < "$sql"
+          done
+          docker exec -i "$POSTGRES_CONTAINER" psql -X -U postgres -v ON_ERROR_STOP=1 < migrations/0010_media_ingest.sql
+      - name: Run Go and PostgreSQL integration tests with race detector
+        env:
+          CGO_ENABLED: '1'
+          ALMAS_TEST_DATABASE_URL: postgresql://almas_app:ci_fixture_app_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres?sslmode=disable
+        run: go test -race -count=1 -v ./...
