@@ -11,6 +11,26 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func NewPostgresMediaUploadHandler(pool *pgxpool.Pool, limit int64, authenticate openapi3filter.AuthenticationFunc, store StoreUpload) http.Handler {
+	return NewMediaUploadHandler(limit, authenticate, func(ctx context.Context, actor VerifiedIdentity, school, lesson string) error {
+		tx, err := beginIdentityRead(ctx, pool, actor)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(ctx)
+		var owner string
+		err = tx.QueryRow(ctx, `
+			SELECT o.teacher_id::text FROM almas.lesson_owners AS o
+			JOIN almas.users AS u ON u.id = o.teacher_id
+			WHERE o.school_id = $1::uuid AND o.lesson_id = $2::uuid AND u.issuer = $3 AND u.subject = $4`,
+			school, lesson, actor.Issuer, actor.Subject).Scan(&owner)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrMediaUnavailable
+		}
+		return err
+	}, store)
+}
+
 // NewPostgresMediaHandler supplies the lesson-enrollment policy for the playback routes.
 func NewPostgresMediaHandler(pool *pgxpool.Pool, key []byte, ttl time.Duration, authenticate openapi3filter.AuthenticationFunc, open OpenMedia) (http.Handler, error) {
 	if pool == nil {

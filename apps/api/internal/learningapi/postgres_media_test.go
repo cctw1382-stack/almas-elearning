@@ -1,11 +1,16 @@
 package learningapi
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -61,5 +66,40 @@ func TestPostgresMedia(t *testing.T) {
 	second := VerifiedIdentity{Issuer: identity.Issuer, Subject: "second-viewer"}
 	if saved, err := postgresMediaProgress(ctx, pool, second, school, asset, nil); err != nil || saved != 0 {
 		t.Fatalf("another learner must see only their progress: %d %v", saved, err)
+	}
+	video := []byte{0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0, 'i', 's', 'o', 'm', 'm', 'p', '4', '2'}
+	writes := 0
+	for _, tc := range []struct {
+		name   string
+		actor  VerifiedIdentity
+		status int
+	}{
+		{"lesson owner", identity, http.StatusCreated},
+		{"enrolled student", second, http.StatusNotFound},
+		{"teacher from another school", VerifiedIdentity{Issuer: "https://issuer-b.example.invalid", Subject: "foreign-media-teacher"}, http.StatusNotFound},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := NewPostgresMediaUploadHandler(pool, int64(len(video)),
+				func(_ context.Context, input *openapi3filter.AuthenticationInput) error {
+					request := input.RequestValidationInput.Request
+					*request = *request.WithContext(context.WithValue(request.Context(), identityContextKey{}, tc.actor))
+					return nil
+				},
+				func(_ context.Context, _ string, source io.Reader) error {
+					writes++
+					_, err := io.Copy(io.Discard, source)
+					return err
+				})
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/schools/"+school+"/lessons/00000000-0000-4000-8000-000000000071/media", bytes.NewReader(video))
+			request.Header.Set("Content-Type", "video/mp4")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != tc.status {
+				t.Fatalf("upload status %d, expected %d", response.Code, tc.status)
+			}
+		})
+	}
+	if writes != 1 {
+		t.Fatalf("expected only one authorized storage write, got %d", writes)
 	}
 }
