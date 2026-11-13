@@ -2,6 +2,20 @@
 
 ## طلبات المراجعة وتشغيل GitHub Actions
 
+### نتائج رؤوس PR #4–#10 قبل تحديث فحص السباقات
+
+| الطلب | SHA | نتائج جميع تشغيلات الطلب الظاهرة |
+| --- | --- | --- |
+| [#4](https://github.com/cctw1382-stack/almas-elearning/pull/4) | `a216f6a` | [الويب](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299351414) ناجح، [النموذج](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299351418) ناجح |
+| [#5](https://github.com/cctw1382-stack/almas-elearning/pull/5) | `c607e99` | [الويب](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299363029) ناجح، [النموذج](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299363094) ناجح |
+| [#6](https://github.com/cctw1382-stack/almas-elearning/pull/6) | `2d2b33f` | [الويب](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299376501) ناجح، [النموذج](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43299376500) ناجح |
+| [#7](https://github.com/cctw1382-stack/almas-elearning/pull/7) | `268fd8a` | [Go](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43320073704) ناجح، [النموذج](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43320074053) ناجح، [الويب](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43320073897) ناجح |
+| [#8](https://github.com/cctw1382-stack/almas-elearning/pull/8) | `6d575ad` | [Go](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43386403976) ناجح، [النموذج](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43386403823) ناجح، [الويب](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43386403796) ناجح |
+| [#9](https://github.com/cctw1382-stack/almas-elearning/pull/9) | `d45d4fd` | [Go](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43388886567) ناجح، [النموذج](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43388886684) ناجح، [الويب](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43388886599) ناجح |
+| [#10](https://github.com/cctw1382-stack/almas-elearning/pull/10) | `168e57f` | [النموذج](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43392266505) ناجح، [الويب](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43392266468) ناجح، [Go](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43392266526) ناجح |
+
+لم تظهر مهمة Go على #4 و#5 و#6. أضيف فحص السباقات إلى مهمة Go على Linux مع `CGO_ENABLED=1`. [قائمة قبول Android](ANDROID_ACCEPTANCE_CHECKLIST.md).
+
 تستهدف الطلبات الأربعة `feat/phase1-complete-ux`. استُخدم موصل GitHub لأن `gh` غير متاح في الطرفية.
 
 | المرحلة | SHA المدفوع | PR | حالة CI بعد فتح الطلب |
