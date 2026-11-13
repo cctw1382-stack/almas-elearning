@@ -70,9 +70,7 @@ export async function mountStudentVideo(issuer: URL, clientId: string, apiBase: 
     const expected = new URL('play', scope);
     if (playback.origin !== expected.origin || playback.pathname !== expected.pathname) throw new Error();
     const response = await request(playback);
-    if (!/^video\/(mp4|webm)(?:;|$)/i.test(response.headers.get('Content-Type') ?? '')) throw new Error();
-    const objectURL = URL.createObjectURL(await response.blob());
-    window.addEventListener('pagehide', () => URL.revokeObjectURL(objectURL), { once: true });
+    const kind = response.headers.get('Content-Type') ?? '';
     const video = document.createElement('video');
     video.controls = true;
     video.preload = 'metadata';
@@ -97,8 +95,31 @@ export async function mountStudentVideo(issuer: URL, clientId: string, apiBase: 
         save.disabled = false;
       }
     };
-    video.src = objectURL;
     panel.append(video, save);
+    if (/^application\/vnd\.apple\.mpegurl(?:;|$)/i.test(kind)) {
+      await response.body?.cancel();
+      const { default: Hls } = await import('hls.js');
+      if (!Hls.isSupported()) throw new Error();
+      const hls = new Hls({
+        progressive: true,
+        fetchSetup: (context, init) => {
+          const target = new URL(context.url);
+          if (target.origin !== expected.origin || target.pathname !== expected.pathname) throw new Error('Invalid media URL');
+          const headers = new Headers(init.headers);
+          headers.set('Authorization', 'Bearer ' + session.accessToken());
+          return new Request(target, { ...init, headers, cache: 'no-store', credentials: 'omit', redirect: 'error' });
+        },
+      });
+      hls.on(Hls.Events.ERROR, (_, data) => { if (data.fatal) showError(); });
+      window.addEventListener('pagehide', () => hls.destroy(), { once: true });
+      hls.loadSource(playback.href);
+      hls.attachMedia(video);
+    } else {
+      if (!/^video\/(mp4|webm)(?:;|$)/i.test(kind)) throw new Error();
+      const objectURL = URL.createObjectURL(await response.blob());
+      window.addEventListener('pagehide', () => URL.revokeObjectURL(objectURL), { once: true });
+      video.src = objectURL;
+    }
   } catch {
     showError();
   }
