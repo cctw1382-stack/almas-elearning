@@ -18,7 +18,51 @@ func NewPostgresMediaHandler(pool *pgxpool.Pool, key []byte, ttl time.Duration, 
 	}
 	return NewMediaHandler(key, ttl, time.Now, authenticate, func(ctx context.Context, identity VerifiedIdentity, school, asset string) (MediaObject, error) {
 		return resolvePostgresMedia(ctx, pool, identity, school, asset)
-	}, open)
+	}, open, func(ctx context.Context, identity VerifiedIdentity, school, asset string, position *int) (int, error) {
+		return postgresMediaProgress(ctx, pool, identity, school, asset, position)
+	})
+}
+
+func postgresMediaProgress(ctx context.Context, pool *pgxpool.Pool, identity VerifiedIdentity, school, asset string, position *int) (int, error) {
+	access := pgx.ReadOnly
+	if position != nil {
+		access = pgx.ReadWrite
+	}
+	tx, err := beginIdentityTx(ctx, pool, identity, access)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	var user string
+	err = tx.QueryRow(ctx, `
+		SELECT u.id::text FROM almas.media_assets AS a
+		JOIN almas.lesson_enrollments AS e USING (school_id, lesson_id)
+		JOIN almas.users AS u ON u.id = e.user_id
+		WHERE a.school_id = $1::uuid AND a.id = $2::uuid AND u.issuer = $3 AND u.subject = $4`,
+		school, asset, identity.Issuer, identity.Subject).Scan(&user)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrMediaUnavailable
+	}
+	if err != nil {
+		return 0, err
+	}
+	var saved int
+	if position == nil {
+		err = tx.QueryRow(ctx, `
+			SELECT COALESCE((SELECT position_ms FROM almas.media_progress
+			WHERE school_id = $1::uuid AND asset_id = $2::uuid AND user_id = $3::uuid), 0)`,
+			school, asset, user).Scan(&saved)
+	} else {
+		err = tx.QueryRow(ctx, `
+			INSERT INTO almas.media_progress (school_id, asset_id, user_id, position_ms)
+			VALUES ($1::uuid, $2::uuid, $3::uuid, $4)
+			ON CONFLICT (school_id, asset_id, user_id) DO UPDATE SET position_ms = EXCLUDED.position_ms
+			RETURNING position_ms`, school, asset, user, *position).Scan(&saved)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return saved, tx.Commit(ctx)
 }
 
 func resolvePostgresMedia(ctx context.Context, pool *pgxpool.Pool, identity VerifiedIdentity, school, asset string) (MediaObject, error) {

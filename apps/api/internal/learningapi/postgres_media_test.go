@@ -48,4 +48,18 @@ func TestPostgresMedia(t *testing.T) {
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM almas.media_assets`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("RLS should hide the matching asset in the other school: count=%d error=%v", count, err)
 	}
+	if err := tx.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	position := 17000
+	if saved, err := postgresMediaProgress(ctx, pool, identity, school, asset, &position); err != nil || saved != position {
+		t.Fatalf("save progress: %d %v", saved, err)
+	}
+	if saved, err := postgresMediaProgress(ctx, pool, identity, school, asset, nil); err != nil || saved != position {
+		t.Fatalf("restore progress: %d %v", saved, err)
+	}
+	second := VerifiedIdentity{Issuer: identity.Issuer, Subject: "second-viewer"}
+	if saved, err := postgresMediaProgress(ctx, pool, second, school, asset, nil); err != nil || saved != 0 {
+		t.Fatalf("another learner must see only their progress: %d %v", saved, err)
+	}
 }

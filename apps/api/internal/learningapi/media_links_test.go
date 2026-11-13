@@ -18,11 +18,12 @@ func TestMediaLinks(t *testing.T) {
 	const asset = "00000000-0000-4000-8000-000000000070"
 	now := time.Unix(2000000000, 0)
 	enrolled := true
+	object := MediaObject{Key: "sample.mp4", ContentType: "video/mp4"}
 	resolve := func(_ context.Context, identity VerifiedIdentity, schoolID, assetID string) (MediaObject, error) {
 		if !enrolled || schoolID != school || assetID != asset || identity.Subject != "student" {
 			return MediaObject{}, ErrMediaUnavailable
 		}
-		return MediaObject{Key: "sample.mp4", ContentType: "video/mp4"}, nil
+		return object, nil
 	}
 	handler, err := NewMediaHandler(bytes.Repeat([]byte{42}, 32), time.Minute, func() time.Time { return now },
 		func(_ context.Context, input *openapi3filter.AuthenticationInput) error {
@@ -36,8 +37,11 @@ func TestMediaLinks(t *testing.T) {
 			}))
 			return nil
 		}, resolve, func(_ context.Context, object MediaObject) (MediaReader, error) {
+			if object.ContentType == "application/vnd.apple.mpegurl" {
+				return mediaTestReader{bytes.NewReader([]byte("#EXTM3U\n#EXTINF:1,\nsegment-1.ts\n#EXT-X-ENDLIST\n"))}, nil
+			}
 			return mediaTestReader{bytes.NewReader([]byte("fixture video"))}, nil
-		})
+		}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +92,25 @@ func TestMediaLinks(t *testing.T) {
 		t.Fatalf("revoked enrollment accepted: %d", got.Code)
 	}
 	enrolled = true
+	object = MediaObject{Key: "playlist.m3u8", ContentType: "application/vnd.apple.mpegurl"}
+	playlist := call(http.MethodGet, link, "student")
+	segment := link + "&segment=segment-1.ts"
+	if playlist.Code != http.StatusOK || !strings.Contains(playlist.Body.String(), segment) {
+		t.Fatalf("playlist did not preserve the signed URL: %d", playlist.Code)
+	}
+	if got := call(http.MethodGet, segment, "student"); got.Code != http.StatusOK {
+		t.Fatalf("authorized segment: %d", got.Code)
+	}
+	if got := call(http.MethodGet, segment, "outsider"); got.Code != http.StatusNotFound {
+		t.Fatalf("shared segment accepted: %d", got.Code)
+	}
+	if got := call(http.MethodGet, link+"&segment=..%2Fprivate.ts", "student"); got.Code != http.StatusNotFound {
+		t.Fatalf("invalid segment accepted: %d", got.Code)
+	}
 	now = now.Add(time.Minute)
+	if got := call(http.MethodGet, segment, "student"); got.Code != http.StatusNotFound {
+		t.Fatalf("expired segment accepted: %d", got.Code)
+	}
 	if got := call(http.MethodGet, link, "student"); got.Code != http.StatusNotFound {
 		t.Fatalf("expired link accepted: %d", got.Code)
 	}

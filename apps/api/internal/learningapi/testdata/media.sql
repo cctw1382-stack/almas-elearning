@@ -5,6 +5,13 @@ INSERT INTO almas.lessons (school_id, id) VALUES
 INSERT INTO almas.lesson_enrollments (school_id, lesson_id, user_id) VALUES
     ('00000000-0000-4000-8000-000000000011', '00000000-0000-4000-8000-000000000071', '00000000-0000-4000-8000-000000000001');
 
+INSERT INTO almas.users (id, issuer, subject) VALUES
+    ('00000000-0000-4000-8000-000000000076', 'https://issuer-a.example.invalid', 'second-viewer');
+INSERT INTO almas.school_memberships (user_id, school_id, role) VALUES
+    ('00000000-0000-4000-8000-000000000076', '00000000-0000-4000-8000-000000000011', 'student');
+INSERT INTO almas.lesson_enrollments (school_id, lesson_id, user_id) VALUES
+    ('00000000-0000-4000-8000-000000000011', '00000000-0000-4000-8000-000000000071', '00000000-0000-4000-8000-000000000076');
+
 INSERT INTO almas.media_assets (school_id, id, lesson_id, object_key, content_type) VALUES
     ('00000000-0000-4000-8000-000000000011', '00000000-0000-4000-8000-000000000070', '00000000-0000-4000-8000-000000000071', 'school-a/fixture.mp4', 'video/mp4'),
     ('00000000-0000-4000-8000-000000000012', '00000000-0000-4000-8000-000000000070', '00000000-0000-4000-8000-000000000071', 'school-b/fixture.mp4', 'video/mp4');
