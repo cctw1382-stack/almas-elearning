@@ -14,7 +14,9 @@
 | [#9](https://github.com/cctw1382-stack/almas-elearning/pull/9) | `d45d4fd` | [Go](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43388886567) ناجح، [النموذج](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43388886684) ناجح، [الويب](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43388886599) ناجح |
 | [#10](https://github.com/cctw1382-stack/almas-elearning/pull/10) | `168e57f` | [النموذج](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43392266505) ناجح، [الويب](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43392266468) ناجح، [Go](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43392266526) ناجح |
 
-لم تظهر مهمة Go على #4 و#5 و#6. أضيف فحص السباقات إلى مهمة Go على Linux مع `CGO_ENABLED=1`. [قائمة قبول Android](ANDROID_ACCEPTANCE_CHECKLIST.md).
+لم تظهر مهمة Go على #4 و#5 و#6. على رأس PR #10 المدفوع `54075cb` نجحت الفحوص الثلاثة. تحققت خطوة `go test -race -count=1 -v ./...` على Linux مع `CGO_ENABLED=1` وقاعدة PostgreSQL الاختبارية. [Go](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43411327204) · [النموذج](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43411327207) · [الويب](https://github.com/cctw1382-stack/almas-elearning/actions/runs/43411327293).
+
+نجح بناء المعاينة محلياً. قبول Android الفعلي ما زال مؤجلاً إلى تنفيذ القائمة على الهاتف. [قائمة قبول Android](ANDROID_ACCEPTANCE_CHECKLIST.md).
 
 تستهدف الطلبات الأربعة `feat/phase1-complete-ux`. استُخدم موصل GitHub لأن `gh` غير متاح في الطرفية.
 
