@@ -119,7 +119,7 @@ func TestKeycloakPostgresSession(t *testing.T) {
 			if err := decoder.Decode(&session); err != nil {
 				t.Fatal(err)
 			}
-			want := []Membership{{SchoolId: "00000000-0000-4000-8000-000000000011", Roles: []MembershipRoles{Student}}}
+			want := []Membership{{SchoolId: "00000000-0000-4000-8000-000000000011", Roles: []MembershipRoles{Student, Teacher}}}
 			if session.UserId != "00000000-0000-4000-8000-000000000004" || !reflect.DeepEqual(session.Memberships, want) {
 				t.Fatalf("unexpected database session: %+v", session)
 			}

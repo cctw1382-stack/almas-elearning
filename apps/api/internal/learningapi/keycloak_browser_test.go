@@ -2,6 +2,8 @@ package learningapi
 
 import (
 	"context"
+	"crypto/rand"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -54,6 +56,52 @@ func TestKeycloakBrowser(t *testing.T) {
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/api/v1/", api)
+	if binary := os.Getenv("ALMAS_TEST_FFMPEG"); binary != "" {
+		objects := t.TempDir()
+		source := filepath.Join(objects, "source.mp4")
+		generate := exec.CommandContext(ctx, binary, "-nostdin", "-loglevel", "error", "-f", "lavfi", "-i",
+			"color=blue:s=160x90:r=10", "-t", "5", "-c:v", "libx264", source)
+		if output, err := generate.CombinedOutput(); err != nil {
+			t.Fatalf("generate video fixture: %v %s", err, output)
+		}
+		store := func(_ context.Context, key string, body io.Reader) error {
+			target := filepath.Join(objects, filepath.FromSlash(key))
+			if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
+				return err
+			}
+			file, err := os.Create(target)
+			if err != nil {
+				return err
+			}
+			_, copyErr := io.Copy(file, body)
+			closeErr := file.Close()
+			if copyErr != nil {
+				return copyErr
+			}
+			return closeErr
+		}
+		open := func(_ context.Context, object MediaObject) (MediaReader, error) {
+			return os.Open(filepath.Join(objects, filepath.FromSlash(object.Key)))
+		}
+		key := make([]byte, 32)
+		rand.Read(key)
+		media, err := NewPostgresMediaHandler(pool, key, 8*time.Second, auth, open)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mux.Handle("/api/v1/schools/{school}/media/{asset}/{operation}", media)
+		convert := FFmpegConverter(binary)
+		mux.Handle("/api/v1/schools/{school}/lessons/{lesson}/media", NewPostgresMediaIngestHandler(pool, 1<<20, auth,
+			func(ctx context.Context, source, dir string) error {
+				err := convert(ctx, source, dir)
+				if err != nil {
+					t.Logf("fixture converter: %v", err)
+				}
+				return err
+			}, store))
+		mux.HandleFunc("GET /fixture/source", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, source) })
+		mux.HandleFunc("GET /student/video", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, filepath.Join(dist, "index.html")) })
+	}
 	mux.HandleFunc("GET /student/exam", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(dist, "index.html"))
 	})

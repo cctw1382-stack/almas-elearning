@@ -21,7 +21,7 @@ func TestPublishHLS(t *testing.T) {
 		return os.WriteFile(filepath.Join(dir, "index.m3u8"), []byte("#EXTM3U\n#EXTINF:1,\nsegment-0.ts\n#EXT-X-ENDLIST\n"), 0600)
 	}
 	if binary := os.Getenv("ALMAS_TEST_FFMPEG"); binary != "" {
-		cmd := exec.CommandContext(ctx, binary, "-nostdin", "-loglevel", "error", "-f", "lavfi", "-i", "color=blue:s=160x90:r=10", "-t", "1", "-c:v", "libx264", source)
+		cmd := exec.CommandContext(ctx, binary, "-nostdin", "-loglevel", "error", "-f", "lavfi", "-i", "color=blue:s=160x90:r=10", "-t", "5", "-c:v", "libx264", source)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("generate source: %v %s", err, output)
 		}

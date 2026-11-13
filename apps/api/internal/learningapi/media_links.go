@@ -152,7 +152,7 @@ func NewMediaHandler(key []byte, ttl time.Duration, now func() time.Time, authen
 				writeProblem(w, http.StatusNotFound, NotFound, "الفيديو غير متاح.")
 				return
 			}
-			object = MediaObject{Key: object.Key + "/" + segment, ContentType: "video/mp2t"}
+			object = MediaObject{Key: path.Join(path.Dir(object.Key), segment), ContentType: "video/mp2t"}
 		}
 		reader, err := open(r.Context(), object)
 		if err != nil {

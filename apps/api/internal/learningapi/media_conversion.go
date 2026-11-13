@@ -3,6 +3,7 @@ package learningapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,7 +21,10 @@ func FFmpegConverter(binary string) MediaConverter {
 			"-hls_time", "4", "-hls_playlist_type", "vod",
 			"-hls_segment_filename", "segment-%06d.ts", "index.m3u8")
 		cmd.Dir = dir
-		return cmd.Run()
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("convert HLS: %w: %s", err, output)
+		}
+		return nil
 	}
 }
 
@@ -56,7 +60,7 @@ func PublishHLS(ctx context.Context, source, prefix string, convert MediaConvert
 		if err != nil {
 			return MediaObject{}, err
 		}
-		err = store(ctx, key+"/"+name, file)
+		err = store(ctx, prefix+"/"+name, file)
 		_ = file.Close()
 		if err != nil {
 			return MediaObject{}, err

@@ -36,6 +36,45 @@ async function run() {
     await page.getByRole('button', { name: 'تسليم المحاولة' }).click();
     await page.getByText('النتيجة 1 من 1').waitFor();
     console.log('Chromium verified Keycloak sign-in, save, refresh and final score against Go and PostgreSQL.');
+    if (process.env.ALMAS_TEST_FFMPEG) {
+      stage = 'upload HLS and restore video position';
+      const origin = 'http://127.0.0.1:4174';
+      const school = '00000000-0000-4000-8000-000000000011';
+      const tokenResponse = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/openid-connect/token'));
+      await page.reload();
+      const token = (await (await tokenResponse).json()).access_token;
+      const headers = { Authorization: 'Bearer ' + token };
+      const upload = await page.request.post(origin + '/api/v1/schools/' + school + '/lessons/00000000-0000-4000-8000-000000000072/media', {
+        headers: { ...headers, 'Content-Type': 'video/mp4' },
+        data: await (await page.request.get(origin + '/fixture/source')).body(),
+      });
+      if (upload.status() !== 201) {
+        stage = 'upload HTTP ' + upload.status();
+        throw new Error('upload failed');
+      }
+      stage = 'load signed HLS in student page';
+      const asset = (await upload.json()).uploadId.split('/').pop().replace(/\.mp4$/, '');
+      const segmentResponse = page.waitForResponse(r => r.url().includes('segment=') && r.status() === 200);
+      const manifestResponse = page.waitForResponse(r => r.url().includes('/play?') && !r.url().includes('segment=') && r.status() === 200);
+      await page.goto(origin + '/student/video?schoolId=' + school + '&assetId=' + asset);
+      await page.getByRole('button', { name: 'دخول الطالب' }).click();
+      await segmentResponse;
+      stage = 'save HLS progress';
+      const manifest = await manifestResponse;
+      const video = page.locator('video');
+      await page.getByRole('button', { name: 'حفظ موضع المشاهدة' }).waitFor();
+      await video.evaluate(v => { v.currentTime = 2; });
+      await page.getByRole('button', { name: 'حفظ موضع المشاهدة' }).click();
+      await page.getByText('حُفظ موضع المشاهدة').waitFor();
+      stage = 'restore HLS progress';
+      await page.reload();
+      await page.waitForFunction(() => Math.abs(document.querySelector('video')?.currentTime - 2) < 0.1);
+      stage = 'deny expired HLS URL';
+      const until = Number(new URL(manifest.url()).searchParams.get('exp'));
+      await new Promise(resolve => setTimeout(resolve, Math.max(0, until - Date.now() + 100)));
+      if ((await page.request.get(manifest.url(), { headers })).status() !== 404) throw new Error('expired link accepted');
+      console.log('Chromium verified upload, HLS segment, expired link and restored playback position.');
+    }
   } finally {
     await browser.close();
   }
