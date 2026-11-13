@@ -19,7 +19,7 @@ const server = http.createServer((request, response) => {
   if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405, { allow: 'GET, HEAD' }).end(); return; }
   let pathname;
   try { pathname = new URL(request.url, 'http://localhost').pathname; } catch { response.writeHead(400).end(); return; }
-  const file = ['/', '/student/exam', '/auth/callback'].includes(pathname) ? 'index.html' : pathname.slice(1);
+  const file = ['/', '/student/exam', '/student/video', '/auth/callback'].includes(pathname) ? 'index.html' : pathname.slice(1);
   if (file === 'favicon.ico') { response.writeHead(204).end(); return; }
   if ((!files.has(file) && !publicAsset.test(file)) || !fs.existsSync(path.join(dist, file))) { response.writeHead(404).end(); return; }
   response.writeHead(200, { 'content-type': types[path.extname(file)], 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });

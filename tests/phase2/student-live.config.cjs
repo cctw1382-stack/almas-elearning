@@ -5,7 +5,7 @@ if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync(cache)) process.env.P
 const origin = 'http://127.0.0.1:5191';
 module.exports = {
   testDir: __dirname,
-  testMatch: 'student-live.spec.cjs',
+  testMatch: ['student-live.spec.cjs', 'student-media.spec.cjs'],
   outputDir: path.resolve(__dirname, '../../test-results/student-live'),
   use: { baseURL: origin, browserName: 'chromium', serviceWorkers: 'block' },
   webServer: {
